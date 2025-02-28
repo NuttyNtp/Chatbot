@@ -1,0 +1,174 @@
+<!DOCTYPE html> 
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trip Planner in Thailand AI</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #fffdf5;
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .header {
+            background-color: #fffdf5;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .logo {
+            width: 75px;
+            height: auto;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        
+        .main-title {
+            font-size: 36px;
+            font-weight: 700;
+            margin-bottom: 20px;
+            max-width: 800px;
+        }
+        
+        .subtitle {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 50px;
+            max-width: 800px;
+        }
+        
+        .input-container {
+            width: 100%;
+            max-width: 700px;
+            background-color: #f5f5f5;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+        }
+        
+        .text-input {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        
+        .get-started-btn {
+            background-color: #68c091;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 18px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .get-started-btn:hover {
+            background-color: #57b080;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(104, 192, 145, 0.3);
+        }
+        
+        .footer {
+            background-color: #fae5ec;
+            padding: 15px 40px;
+            display: flex;
+            justify-content: space-between;
+            color: #333;
+        }
+        
+        .creator-info {
+            font-size: 14px;
+        }
+        
+        .contact-info {
+            font-size: 14px;
+        }
+        
+        @media (max-width: 768px) {
+            .main-title {
+                font-size: 28px;
+            }
+            
+            .subtitle {
+                font-size: 16px;
+            }
+            
+            .footer {
+                flex-direction: column;
+                text-align: center;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="asset\KU_SubLogo.png" alt="Kasetsart University Logo" class="logo">
+    </div>
+    
+    <div class="main-content">
+        <h1 class="main-title">Welcome to Trip Planner - Your AI Travel in Thailand!</h1>
+        <p class="subtitle">Your personal AI tour guide, ready to unlock the best of Thailand!</p>
+        
+        <div class="input-container">
+            <input type="text" class="text-input" placeholder="What would you like to know about Thailand?" id="initial-query">
+        </div>
+        
+        <button class="get-started-btn" id="get-started-btn">Get Start</button>
+
+    </div>
+    
+    <div class="footer">
+        <div class="creator-info">By: Tangmo & Nutty</div>
+        <div class="contact-info">contact: 0000000</div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const getStartedBtn = document.getElementById('get-started-btn');
+            const initialQuery = document.getElementById('initial-query');
+            
+            getStartedBtn.addEventListener('click', function() {
+                // Store the initial query in localStorage if it exists
+                const query = initialQuery.value.trim();
+                if (query) {
+                    localStorage.setItem('initialQuery', query);
+                }
+                
+                // Redirect to the chat page
+                window.location.href = "{{ url_for('chat_page') }}";
+            });
+            
+            // Also allow pressing Enter in the input field
+            initialQuery.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    getStartedBtn.click();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
