@@ -1,4 +1,4 @@
-<!DOCTYPE html> 
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -17,158 +17,152 @@
             display: flex;
             flex-direction: column;
         }
-        
         .header {
-            background-color: #fffdf5;
+            background-color: #f1f1cb;
             padding: 20px;
             display: flex;
             align-items: center;
         }
-        
         .logo {
             width: 75px;
-            height: auto;
         }
-        
         .main-content {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 40px 20px;
             text-align: center;
+            padding: 50px 20px;
         }
-        
         .main-title {
             font-size: 36px;
             font-weight: 700;
-            margin-bottom: 20px;
-            max-width: 800px;
         }
-        
         .subtitle {
             font-size: 18px;
-            color: #333;
-            margin-bottom: 50px;
-            max-width: 800px;
+            color: #555;
         }
-        
-        .input-container {
-            width: 100%;
-            max-width: 700px;
-            background-color: #f5f5f5;
-            border-radius: 20px;
-            padding: 30px;
-            margin-bottom: 30px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+        .search-box {
+            margin: 30px auto;
+            max-width: 600px;
+            display: flex;
+            gap: 10px;
+            background: #f5f5f5;
+            border-radius: 30px;
+            padding: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         }
-        
-        .text-input {
-            width: 100%;
+        .search-box input {
+            flex: 1;
+            border: none;
             padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 10px;
             font-size: 16px;
-            box-sizing: border-box;
+            border-radius: 20px;
+            outline: none;
         }
-        
-        .get-started-btn {
+        .search-box button {
             background-color: #68c091;
             color: white;
             border: none;
-            padding: 15px 40px;
+            padding: 15px 20px;
             border-radius: 30px;
-            font-size: 18px;
-            font-weight: 500;
+            font-size: 16px;
             cursor: pointer;
-            transition: all 0.3s;
+            transition: 0.3s;
         }
-        
-        .get-started-btn:hover {
+        .search-box button:hover {
             background-color: #57b080;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(104, 192, 145, 0.3);
         }
-        
+        .popular-questions, .top-destinations {
+            margin-top: 50px;
+        }
+        .section-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            padding: 0 20px;
+        }
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            transition: 0.3s;
+            cursor: pointer;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
         .footer {
-            background-color: #fae5ec;
-            padding: 15px 40px;
-            display: flex;
-            justify-content: space-between;
-            color: #333;
-        }
-        
-        .creator-info {
+            background: #fae5ec;
+            text-align: center;
+            padding: 15px;
             font-size: 14px;
         }
-        
-        .contact-info {
-            font-size: 14px;
-        }
-        
-        @media (max-width: 768px) {
-            .main-title {
-                font-size: 28px;
-            }
-            
-            .subtitle {
-                font-size: 16px;
-            }
-            
-            .footer {
-                flex-direction: column;
-                text-align: center;
-                gap: 10px;
-            }
+         .gif-image {
+            width: 100%;
+            max-width: 600px;
+            border-radius: 20px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 30px;
         }
     </style>
-</head>
-<body>
-    <div class="header">
-        <img src="asset\KU_SubLogo.png" alt="Kasetsart University Logo" class="logo">
-    </div>
-    
-    <div class="main-content">
-        <h1 class="main-title">Welcome to Trip Planner - Your AI Travel in Thailand!</h1>
-        <p class="subtitle">Your personal AI tour guide, ready to unlock the best of Thailand!</p>
-        
-        <div class="input-container">
-            <input type="text" class="text-input" placeholder="What would you like to know about Thailand?" id="initial-query">
-        </div>
-        
-        <button class="get-started-btn" id="get-started-btn">Get Start</button>
-
-    </div>
-    
-    <div class="footer">
-        <div class="creator-info">By: Tangmo & Nutty</div>
-        <div class="contact-info">contact: 0000000</div>
-    </div>
-    
     <script>
+        function fillSearchBox(question) {
+            document.querySelector('.search-box input').value = question;
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
-            const getStartedBtn = document.getElementById('get-started-btn');
-            const initialQuery = document.getElementById('initial-query');
-            
-            getStartedBtn.addEventListener('click', function() {
-                // Store the initial query in localStorage if it exists
-                const query = initialQuery.value.trim();
+            document.querySelector('.search-box button').addEventListener('click', function() {
+                const query = document.querySelector('.search-box input').value.trim();
                 if (query) {
                     localStorage.setItem('initialQuery', query);
-                }
-                
-                // Redirect to the chat page
-                window.location.href = "{{ url_for('chat_page') }}";
-            });
-            
-            // Also allow pressing Enter in the input field
-            initialQuery.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    getStartedBtn.click();
+                    window.location.href = "{{ url_for('chat_page') }}";
                 }
             });
         });
     </script>
+</head>
+<body>
+    <div class="header">
+        <img src="{{ url_for('static', filename='asset/KU_SubLogo.png') }}" alt="KU Logo" class="logo">
+    </div>
+    
+    <div class="main-content">
+        <img src="{{ url_for('static', filename='asset/thai.gif') }}" alt="Thai Flag" class="gif-banner">
+        <h1 class="main-title">Welcome to Trip Planner - AI Travel in Thailand!</h1>
+        <p class="subtitle">Your personal AI tour guide, ready to unlock the best of Thailand!</p>
+        
+        <div class="search-box">
+            <input type="text" placeholder="What would you like to know about Thailand?">
+            <button>Send</button>
+        </div>
+        
+        <div class="top-destinations">
+            <h2 class="section-title">Top Destinations</h2>
+            <div class="grid">
+                <div class="card">🏝️ Phuket - The Pearl of Andaman</div>
+                <div class="card">🏯 Chiang Mai - Culture & Nature</div>
+                <div class="card">🌆 Bangkok - The City That Never Sleeps</div>
+                <div class="card">🏖️ Krabi - Paradise Beach & Islands</div>
+            </div>
+        </div>
+        
+        <div class="popular-questions">
+            <h2 class="section-title">Popular Questions</h2>
+            <div class="grid">
+                <div class="card" onclick="fillSearchBox('Best places to visit in Bangkok?')">📍 Best places to visit in Bangkok?</div>
+                <div class="card" onclick="fillSearchBox('How to travel around Thailand?')">🚆 How to travel around Thailand?</div>
+                <div class="card" onclick="fillSearchBox('Where to find the best street food?')">🍜 Where to find the best street food?</div>
+                <div class="card" onclick="fillSearchBox('When is the best time to visit Phuket?')">🌤️ When is the best time to visit Phuket?</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        By: Tangmo & Nutty | Contact: 0000000
+    </div>
 </body>
 </html>

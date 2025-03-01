@@ -10,6 +10,8 @@ import re
 import datetime
 import secrets
 import mysql.connector
+import asyncio
+import aiohttp
 
 # Setup basic logging
 logging.basicConfig(level=logging.DEBUG)
@@ -21,29 +23,18 @@ gmaps = googlemaps.Client(key='AIzaSyDv_OEg50nhbpvW-EtNy3ze-dqsG4tPEEI')  # Add 
 app = Flask(__name__)
 # Generate a new secret key
 app.secret_key = secrets.token_hex(16)
-socketio = SocketIO(app)
+socketio = SocketIO(app, async_mode='eventlet')  # Use eventlet for async mode
 
 def format_output(text):
     """แปลง Markdown เป็น HTML โดยให้ลิงก์สามารถคลิกได้ และแสดงรูปถ้าเป็น URL ของรูป"""
-    
-    # แปลง **bold text** เป็น <strong>
     text = re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', text)
-
-    # ตรวจจับ URL ของรูปภาพปกติ (เช่น .jpg, .png, .gif)
     image_pattern = r'(https?://[^\s]+(?:\.jpg|\.jpeg|\.png|\.gif|\.bmp|\.webp))'
     text = re.sub(image_pattern, r'<img src="\1" alt="Image" style="max-width:100%; height:auto;">', text)
-
-    # ตรวจจับ Google Drive Direct Link และแปลงเป็นรูปภาพ (ใช้ export=view)
     drive_pattern = r'https://drive\.google\.com/uc\?id=([a-zA-Z0-9_-]+)'
     text = re.sub(drive_pattern, r'<img src="https://drive.google.com/uc?export=view&id=\1" alt="Google Drive Image" style="max-width:100%; height:auto;">', text)
-
-    # ตรวจจับ Google Drive แบบ `/file/d/FILE_ID/view` และแปลงเป็น `<img>`
     drive_file_pattern = r'https://drive\.google\.com/file/d/([a-zA-Z0-9_-]+)/view'
     text = re.sub(drive_file_pattern, r'<img src="https://drive.google.com/uc?export=view&id=\1" alt="Google Drive Image" style="max-width:100%; height:auto;">', text)
-
-    # แปลง URL ที่ไม่ใช่รูปภาพเป็น <a href>
     text = re.sub(r'(?<!<img src=")(https?://[^\s]+)(?!")', r'<a href="\1" target="_blank">\1</a>', text)
-
     return text
 
 # Database connection function
@@ -68,11 +59,8 @@ def get_image_metadata(place_name):
 # Define chatbot initialization
 def initialise_llama3():
     try:
-        # Initialize OpenAI LLM and output parser
         llama_model = Ollama(model="llama3:latest")
         output_formatter = StrOutputParser()
-
-        # Create chain
         chatbot_pipeline = llama_model | output_formatter
         return chatbot_pipeline
     except Exception as e:
@@ -102,6 +90,21 @@ def create_trip_type_buttons():
         ]
     }
 
+# Asynchronous function to get location info from Google Maps API
+async def fetch_location_info(location):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(f'https://maps.googleapis.com/maps/api/geocode/json?address={location}&key=YOUR_GOOGLE_MAPS_API_KEY') as response:
+            return await response.json()
+
+# Asynchronous function to get chatbot response
+async def fetch_chatbot_response(query_input):
+    try:
+        response = await chatbot_pipeline.invoke(query_input)
+        return response
+    except Exception as e:
+        logging.error(f"Chatbot error: {e}")
+        return "Sorry, I couldn't process your request. Please try again later."
+
 @socketio.on('send_message')
 def handle_send_message(data):
     query_input = data.get('message', '').strip()
@@ -110,72 +113,42 @@ def handle_send_message(data):
         return
 
     chat_history = session.get('history', [])
-
     try:
         # Append user query to history
         chat_history.append(("user", query_input, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-
         chat_messages = [(role, message) for role, message, _ in chat_history]  # Remove timestamp
         chat_messages.append(("system", "You are a travel assistant specializing in Thailand. Only answer questions related to travel in Thailand. If the question is unrelated, politely decline."))
 
         create_prompt = ChatPromptTemplate.from_messages(chat_messages)
 
-        # Get response from chatbot
-        try:
-            response = chatbot_pipeline.invoke(query_input)
-        except Exception as e:
-            logging.error(f"Chatbot error: {e}")
-            response = "Sorry, I couldn't process your request. Please try again later."
+        # Asynchronous fetch for both chatbot response and location info
+        async def handle_query():
+            location = None
+            if "where is" in query_input.lower() or "location of" in query_input.lower():
+                location = query_input.lower().replace("where is", "").replace("location of", "").strip()
 
-        # Check if the query is related to choosing a trip type (interactive choice)
-        if "trip type" in query_input.lower() or "plan a trip" in query_input.lower():
-            # Present interactive choices
-            response = create_trip_type_buttons()
+            # Fetch both chatbot and location info concurrently
+            chatbot_response = await fetch_chatbot_response(query_input)
 
-        # Check if the query contains a place or location
-        location = None
-        if "where is" in query_input.lower() or "location of" in query_input.lower():
-            # Extract location name from the query
-            location = query_input.lower().replace("where is", "").replace("location of", "").strip()
+            if location:
+                location_info = await fetch_location_info(location)
+                if not location_info.get('results'):
+                    chatbot_response = f"Sorry, I couldn't find information for {location}. Please try again."
+                else:
+                    place_name = location_info['results'][0]['formatted_address']
+                    latitude = location_info['results'][0]['geometry']['location']['lat']
+                    longitude = location_info['results'][0]['geometry']['location']['lng']
+                    map_url = f"https://www.google.com/maps?q={latitude},{longitude}"
+                    chatbot_response += f"\n\nHere is the map link for {place_name}: <a href='{map_url}' target='_blank'>{place_name}</a>"
 
-        if location:
-            # Get place details using the Google Maps API
-            try:
-                geocode_result = gmaps.geocode(location)
-                if not geocode_result:
-                    response = f"Sorry, I couldn't find information for {location}. Please try again."
-                    emit('receive_message', {'message': response, 'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')})
-                    return
+            # Format output
+            output = format_output(chatbot_response)
 
-                # Get the first result from geocode and extract location data
-                place_name = geocode_result[0]['formatted_address']
-                latitude = geocode_result[0]['geometry']['location']['lat']
-                longitude = geocode_result[0]['geometry']['location']['lng']
+            # Emit response back to client
+            emit('receive_message', {'message': output, 'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}, json=True)
 
-                # Generate Google Maps URL for the location
-                map_url = f"https://www.google.com/maps?q={latitude},{longitude}"
-
-                # Include the map link in the response
-                response += f"\n\nHere is the map link for {place_name}: <a href='{map_url}' target='_blank'>{place_name}</a>"
-            except googlemaps.exceptions.ApiError as e:
-                logging.error(f"Google Maps API error: {e}")
-                response = "Sorry, I couldn't fetch location data at the moment. Please try again later."
-
-        # Append chatbot response to history
-        chat_history.append(("system", response, datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
-
-        # Format output
-        output = format_output(response)
-        
-        # Update session history
-        session['history'] = chat_history
-        session.modified = True  # Mark session as modified
-
-        # Emit response back to client
-        emit('receive_message', {
-            'message': output,
-            'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }, json=True)
+        # Run asynchronous query handler
+        asyncio.run(handle_query())
 
     except Exception as e:
         logging.error(f"Error during chatbot invocation: {e}")
