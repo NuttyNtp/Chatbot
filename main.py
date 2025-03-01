@@ -17,7 +17,7 @@ import aiohttp
 logging.basicConfig(level=logging.DEBUG)
 
 # Set up Google Maps API client
-gmaps = googlemaps.Client(key='AIzaSyDv_OEg50nhbpvW-EtNy3ze-dqsG4tPEEI')  # Add your Google Maps API key here
+gmaps = googlemaps.Client(key='')  # Add your Google Maps API key here
 
 # Create Flask app and SocketIO instance
 app = Flask(__name__)
