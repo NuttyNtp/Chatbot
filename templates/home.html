@@ -110,19 +110,26 @@
         }
     </style>
     <script>
-        function fillSearchBox(question) {
+    function fillSearchBox(question) {
             document.querySelector('.search-box input').value = question;
         }
 
+        // ฟังก์ชั่นเมื่อกดปุ่มส่งคำถาม
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelector('.search-box button').addEventListener('click', function() {
                 const query = document.querySelector('.search-box input').value.trim();
                 if (query) {
-                    localStorage.setItem('initialQuery', query);
-                    window.location.href = "{{ url_for('chat_page') }}";
+                    localStorage.setItem('initialQuery', query);  // เก็บคำถามใน localStorage
+                    window.location.href = "{{ url_for('chat_page') }}";  // ไปยังหน้า chat
                 }
             });
         });
+
+        // ฟังก์ชั่นสำหรับคลิกที่คำถามจาก Popular Questions
+        function handlePopularQuestion(question) {
+            localStorage.setItem('initialQuery', question);  // เก็บคำถามใน localStorage
+            window.location.href = "{{ url_for('chat_page') }}";  // ไปยังหน้า chat
+        }
     </script>
 </head>
 <body>
@@ -153,10 +160,10 @@
         <div class="popular-questions">
             <h2 class="section-title">Popular Questions</h2>
             <div class="grid">
-                <div class="card" onclick="fillSearchBox('Best places to visit in Bangkok?')">📍 Best places to visit in Bangkok?</div>
-                <div class="card" onclick="fillSearchBox('How to travel around Thailand?')">🚆 How to travel around Thailand?</div>
-                <div class="card" onclick="fillSearchBox('Where to find the best street food?')">🍜 Where to find the best street food?</div>
-                <div class="card" onclick="fillSearchBox('When is the best time to visit Phuket?')">🌤️ When is the best time to visit Phuket?</div>
+                <div class="card" onclick="handlePopularQuestion('Best places to visit in Bangkok?')">📍 Best places to visit in Bangkok?</div>
+                <div class="card" onclick="handlePopularQuestion('How to travel around Thailand?')">🚆 How to travel around Thailand?</div>
+                <div class="card" onclick="handlePopularQuestion('Where to find the best street food?')">🍜 Where to find the best street food?</div>
+                <div class="card" onclick="handlePopularQuestion('When is the best time to visit Phuket?')">🌤️ When is the best time to visit Phuket?</div>
             </div>
         </div>
     </div>
