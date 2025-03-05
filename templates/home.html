@@ -90,10 +90,43 @@
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
             transition: 0.3s;
             cursor: pointer;
+            position: relative;
         }
         .card:hover {
             transform: translateY(-5px);
             box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+        .card .hover-comment {
+            position: absolute;
+            top: -50px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #333;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 10;
+            max-width: 250px;
+            text-align: center;
+        }
+        .card .hover-comment::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 10px 10px 0;
+            border-style: solid;
+            border-color: #333 transparent transparent transparent;
+        }
+        .card:hover .hover-comment {
+            top: -60px;
+            opacity: 1;
+            visibility: visible;
         }
         .footer {
             background: #fae5ec;
@@ -101,7 +134,7 @@
             padding: 15px;
             font-size: 14px;
         }
-         .gif-image {
+        .gif-image {
             width: 100%;
             max-width: 600px;
             border-radius: 20px;
@@ -150,10 +183,22 @@
         <div class="top-destinations">
             <h2 class="section-title">Top Destinations</h2>
             <div class="grid">
-                <div class="card">🏝️ Phuket - The Pearl of Andaman</div>
-                <div class="card">🏯 Chiang Mai - Culture & Nature</div>
-                <div class="card">🌆 Bangkok - The City That Never Sleeps</div>
-                <div class="card">🏖️ Krabi - Paradise Beach & Islands</div>
+                <div class="card">
+                    🏝️ Phuket - The Pearl of Andaman
+                    <div class="hover-comment">Crystal clear waters, white sandy beaches, vibrant nightlife in a tropical paradise!</div>
+                </div>
+                <div class="card">
+                    🏯 Chiang Mai - Culture & Nature
+                    <div class="hover-comment">Ancient temples, misty mountains, and rich cultural experiences await in Northern Thailand!</div>
+                </div>
+                <div class="card">
+                    🌆 Bangkok - The City That Never Sleeps
+                    <div class="hover-comment">Bustling streets, incredible street food, and a perfect blend of traditional and modern life!</div>
+                </div>
+                <div class="card">
+                    🏖️ Krabi - Paradise Beach & Islands
+                    <div class="hover-comment">Limestone cliffs, turquoise waters, and breathtaking landscapes that look like they're from a postcard!</div>
+                </div>
             </div>
         </div>
         

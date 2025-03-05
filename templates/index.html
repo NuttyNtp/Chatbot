@@ -14,20 +14,34 @@
             margin: 0;
             padding: 0;
             display: flex;
+            background-image: url('https://i.pinimg.com/originals/a1/ec/7e/a1ec7e2da8725a41ede055bb0e0fe130.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
         }
         .sidebar {
-            width: 250px;
-            background-color: #FFFFFF;
+            width: 290px;
+            background-color: rgba(255, 255, 255, 0.9);
             color: #333;
             padding: 30px;
-            height: 100vh;
+            height: 110vh;
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
             border-right: 1px solid #ffd6d6;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+            z-index: 10;
         }
         .sidebar-logo {
-            width: 75px;
+            width: 100px;
+            margin: 0 auto 30px;
+            display: block;
+        }
+        .sidebar-title {
+            text-align: center;
+            font-size: 18px;
+            font-weight: 600;
+            color: #ff6b6b;
             margin-bottom: 20px;
         }
         .sidebar button {
@@ -35,7 +49,7 @@
             color: #333;
             border: 2px solid #e7a1ad;
             padding: 16px 24px;
-            margin: 12px 0;
+            margin: 8px 0;
             border-radius: 25px;
             cursor: pointer;
             font-size: 16px;
@@ -45,45 +59,66 @@
         }
         .sidebar button:hover {
             background-color: #ffc2c2;
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(255, 194, 194, 0.4);
         }
         .chat-container {
             flex: 1;
-            max-width: 900px;
+            max-width: 950px;
             margin: 50px auto;
-            padding: 20px;
-            background-color: #FFFFFF;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            padding: 30px;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
             display: flex;
             flex-direction: column;
             border: 1px solid #ffd6d6;
+            backdrop-filter: blur(10px);
         }
         .header {
             text-align: center;
-            font-size: 28px;
-            color: #333;
+            font-size: 30px;
+            color: #ff6b6b;
             font-weight: 600;
             margin-bottom: 30px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.1);
         }
         .chat-box {
             flex: 1;
             overflow-y: auto;
             padding: 20px;
-            border-radius: 10px;
-            background-color: #FFFFFF;
+            border-radius: 12px;
+            background-color: rgba(255, 255, 255, 0.8);
             border: 1px solid #ffeaea;
-            max-height: 600px;
+            max-height: 550px;
         }
         .chat-message {
             display: flex;
             width: 100%;
-            margin: 15px 0;
+            margin: 20px 0;
+            align-items: flex-start;
         }
         .chat-message.user {
             justify-content: flex-end;
         }
         .chat-message.bot {
             justify-content: flex-start;
+        }
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-size: cover;
+            background-position: center;
+            margin: 0 10px;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        }
+        .user-avatar {
+            background-image: url('https://ui-avatars.com/api/?name=You&background=92D6E3&color=fff');
+        }
+        .bot-avatar {
+            background-image: url('https://ui-avatars.com/api/?name=Guide&background=FF6B6B&color=fff');
         }
         .user-message, .bot-message {
             padding: 16px 20px;
@@ -92,51 +127,57 @@
             line-height: 1.6;
             font-size: 16px;
             word-wrap: break-word;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
         .user-message {
             background-color: #e8f4fc;
             color: #2E4057;
-            margin-left: 25px;
+            border-bottom-right-radius: 0;
         }
         .bot-message {
-            background-color: #f8f9fa;
+            background-color: #fff;
             color: #2E4057;
-            margin-right: 25px;
+            border-bottom-left-radius: 0;
             border: 1px solid #eee;
         }
         .input-container {
             display: flex;
             align-items: center;
             margin-top: 20px;
+            position: relative;
         }
         .query-input {
             flex: 1;
-            padding: 16px 20px;
+            padding: 18px 25px;
             border: 1px solid #eee;
             border-radius: 30px;
             font-size: 16px;
             margin-right: 15px;
             background-color: #fff;
             transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
         }
         .query-input:focus {
             outline: none;
             border-color: #ffc2c2;
-            box-shadow: 0 0 5px rgba(255, 194, 194, 0.3);
+            box-shadow: 0 0 15px rgba(255, 194, 194, 0.4);
         }
         .send-button {
-            background-color: #68c091;
+            background-color: #ff6b6b;
             color: white;
             border: none;
-            padding: 14px 25px;
+            padding: 16px 28px;
             border-radius: 30px;
             cursor: pointer;
             font-weight: 500;
             font-size: 16px;
             transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(255, 107, 107, 0.3);
         }
         .send-button:hover {
-            background-color: #57b080;
+            background-color: #ff5252;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
         }
         .message-timestamp {
             font-size: 12px;
@@ -169,33 +210,120 @@
             color: #333;
             border: none;
             padding: 12px 18px;
-            margin: 8px 0;
+            margin: 8px 4px;
             border-radius: 20px;
             cursor: pointer;
-            font-size: 16px;
+            font-size: 15px;
             transition: all 0.2s;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.05);
         }
 
         .interactive-button:hover {
             background-color: #ffc2c2;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 12px rgba(0,0,0,0.1);
         }
         
         .back-button {
             position: absolute;
             top: 20px;
             right: 20px;
-            background-color: #f8e1e5;
-            color: #333;
-            border: none;
-            padding: 8px 16px;
+            background-color: rgba(255, 255, 255, 0.9);
+            color: #ff6b6b;
+            border: 1px solid #ffd6d6;
+            padding: 10px 18px;
             border-radius: 20px;
             cursor: pointer;
             font-size: 14px;
             transition: all 0.2s;
+            z-index: 20;
+            font-weight: 500;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
         
         .back-button:hover {
             background-color: #ffc2c2;
+            transform: translateY(-2px);
+        }
+
+        .quick-actions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin: 15px 0 5px;
+            gap: 8px;
+        }
+
+        .quick-action-button {
+            background-color: #fff;
+            color: #333;
+            border: 1px solid #ffeaea;
+            padding: 10px 15px;
+            border-radius: 18px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s;
+            box-shadow: 0 3px 8px rgba(0,0,0,0.05);
+        }
+
+        .quick-action-button:hover {
+            background-color: #f8e1e5;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 12px rgba(0,0,0,0.1);
+        }
+
+        .category-header {
+            color: #ff6b6b;
+            font-weight: 600;
+            margin-top: 20px;
+            margin-bottom: 8px;
+            border-bottom: 1px solid #ffd6d6;
+            padding-bottom: 5px;
+        }
+
+        /* Pulsing animation for the bot when typing */
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+        
+        .typing-indicator {
+            display: flex;
+            align-items: center;
+            margin-left: 50px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        
+        .typing-indicator.visible {
+            opacity: 1;
+        }
+        
+        .typing-indicator span {
+            height: 8px;
+            width: 8px;
+            background-color: #ff6b6b;
+            border-radius: 50%;
+            display: inline-block;
+            margin: 0 2px;
+            animation: pulse 1s infinite;
+        }
+        
+        .typing-indicator span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .typing-indicator span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        .typing-text {
+            margin-left: 8px;
+            color: #888;
+            font-size: 14px;
         }
     </style>
     <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
@@ -216,8 +344,65 @@
                 case 'picture':
                     inputField.value = "Show me a picture with details about"; 
                     break;
+                case 'food':
+                    inputField.value = "What are popular Thai dishes I should try?";
+                    break;
+                case 'budget':
+                    inputField.value = "How much should I budget per day in Thailand?";
+                    break;
+                case 'weather':
+                    inputField.value = "What's the weather like in Thailand right now?";
+                    break;
+                case 'culture':
+                    inputField.value = "What cultural etiquette should I be aware of in Thailand?";
+                    break;
+                case 'shopping':
+                    inputField.value = "Where are the best places to shop in Thailand?";
+                    break;
+                case 'beaches':
+                    inputField.value = "Which are the best beaches to visit in Thailand?";
+                    break;
+                case 'temples':
+                    inputField.value = "What are the must-visit temples in Thailand?";
+                    break;
             }
             inputField.focus();
+        }
+
+        // Function to handle quick action buttons
+        function quickAction(action) {
+            const inputField = document.getElementById('query-input');
+            switch(action) {
+                case 'bangkok':
+                    inputField.value = "What should I do in Bangkok?";
+                    break;
+                case 'phuket':
+                    inputField.value = "Tell me about Phuket";
+                    break;
+                case 'chiangmai':
+                    inputField.value = "What to see in Chiang Mai?";
+                    break;
+                case 'safety':
+                    inputField.value = "Is Thailand safe for tourists?";
+                    break;
+                case 'visa':
+                    inputField.value = "Do I need a visa for Thailand?";
+                    break;
+                case 'itinerary':
+                    inputField.value = "Can you suggest a 7-day Thailand itinerary?";
+                    break;
+            }
+            submitMessage();
+        }
+
+        // Function to submit message
+        function submitMessage() {
+            const form = document.getElementById('chat-form');
+            const event = new Event('submit', {
+                'bubbles': true,
+                'cancelable': true
+            });
+            form.dispatchEvent(event);
         }
 
         // Function to scroll chat to bottom
@@ -226,8 +411,12 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        function appendMessage(message) {
-            console.log(message);
+        function showTypingIndicator() {
+            const indicator = document.getElementById('typing-indicator');
+            indicator.classList.add('visible');
+            setTimeout(() => {
+                indicator.classList.remove('visible');
+            }, 2000); // Typing indicator shows for 2 seconds
         }
 
         // Scroll to bottom when page loads and after new messages
@@ -242,7 +431,7 @@
             }
             
             // Add a welcome message
-            appendMessage('bot', 'Welcome to Thailand Trip Planner! How can I help you plan your trip today?', new Date().toLocaleString());
+            appendMessage('bot', 'Welcome to Thailand Trip Planner! How can I help you plan your dream vacation in the Land of Smiles? You can use the quick actions below or ask me anything about Thailand.', new Date().toLocaleString());
             scrollToBottom();
         };
 
@@ -266,29 +455,37 @@
                     // Append user message to chat box
                     appendMessage('user', message, new Date().toLocaleString());
                     queryInput.value = '';
+                    showTypingIndicator();
                 }
             });
 
             socket.on('receive_message', function(data) {
                 // Append bot response to chat box
-                appendMessage('bot', data.message, data.timestamp);
-                if (data.buttons) {
-                    // Display buttons if provided in the response
-                    displayButtons(data.buttons);
-                }
-                scrollToBottom();
+                setTimeout(() => {
+                    appendMessage('bot', data.message, data.timestamp);
+                    if (data.buttons) {
+                        // Display buttons if provided in the response
+                        displayButtons(data.buttons);
+                    }
+                    scrollToBottom();
+                }, 1000); // Slight delay to make it feel more natural
             });
 
             function appendMessage(sender, message, timestamp) {
                 const messageContainer = document.createElement('div');
                 messageContainer.classList.add('chat-message', sender);
 
+                // Add avatar
+                const avatar = document.createElement('div');
+                avatar.classList.add('avatar', sender === 'user' ? 'user-avatar' : 'bot-avatar');
+                
+                // Message content
                 const messageContent = document.createElement('div');
                 messageContent.classList.add(sender === 'user' ? 'user-message' : 'bot-message');
 
                 const messageText = document.createElement('p');
                 
-                // Check if the message contains an image URL (http/https and ends with typical image extensions)
+                // Check if the message contains an image URL
                 const imageUrlPattern = /^https?:\/\/.*\.(jpeg|jpg|gif|png|bmp|webp)$/i;
                 if (imageUrlPattern.test(message)) {
                     // If it is an image link, create an image element
@@ -297,6 +494,7 @@
                     image.alt = "Image"; 
                     image.style.maxWidth = '100%';
                     image.style.height = 'auto';
+                    image.style.borderRadius = '10px';
                     messageText.appendChild(image);
                 } else {
                     // Otherwise, just append the text
@@ -309,39 +507,88 @@
 
                 messageContent.appendChild(messageText);
                 messageContent.appendChild(messageTimestamp);
-                messageContainer.appendChild(messageContent);
+                
+                // Proper order based on user or bot
+                if (sender === 'user') {
+                    messageContainer.appendChild(messageContent);
+                    messageContainer.appendChild(avatar);
+                } else {
+                    messageContainer.appendChild(avatar);
+                    messageContainer.appendChild(messageContent);
+                }
+                
                 chatBox.appendChild(messageContainer);
             }
 
             function displayButtons(buttons) {
                 const chatBox = document.getElementById('chat-box');
+                const buttonContainer = document.createElement('div');
+                buttonContainer.style.display = 'flex';
+                buttonContainer.style.flexWrap = 'wrap';
+                buttonContainer.style.justifyContent = 'center';
+                buttonContainer.style.margin = '10px 0';
+                
                 buttons.forEach(function(button) {
                     const buttonElement = document.createElement('button');
                     buttonElement.classList.add('interactive-button');
                     buttonElement.innerText = button.text;
                     buttonElement.onclick = function() {
                         socket.emit('send_message', { message: button.value });
+                        appendMessage('user', button.text, new Date().toLocaleString());
+                        showTypingIndicator();
                     };
-                    chatBox.appendChild(buttonElement);
+                    buttonContainer.appendChild(buttonElement);
                 });
+                
+                chatBox.appendChild(buttonContainer);
             }
         });
     </script>
 </head>
-<body>
+<body>   
     <div class="sidebar">
         <img src="{{ url_for('static', filename='asset/KU_SubLogo.png') }}" alt="KU Logo" class="sidebar-logo">
-        <button onclick="selectOption('hotel')">Booking Hotel Link</button>
-        <button onclick="selectOption('transportation')">Transportation</button>
-        <button onclick="selectOption('activities')">Activities</button>
-        <button onclick="selectOption('picture')">Picture with detail</button>
+        <div class="sidebar-title">THAILAND EXPLORER</div>
+        
+        <div class="category-header">Essential Services</div>
+        <button onclick="selectOption('hotel')">🏨 Booking Hotel Link</button>
+        <button onclick="selectOption('transportation')">🚕 Transportation Options</button>
+        <!-- <button onclick="selectOption('weather')">☀️ Weather Information</button> -->
+        <button onclick="selectOption('budget')">💰 Budget Planning</button>
+        
+        <div class="category-header">Experiences</div>
+        <button onclick="selectOption('activities')">🎭 Activities & Adventures</button>
+        <button onclick="selectOption('food')">🍜 Thai Cuisine Guide</button>
+        <button onclick="selectOption('temples')">🛕 Temple Tours</button>
+        <button onclick="selectOption('beaches')">🏖️ Beach Destinations</button>
+        <!-- <button onclick="selectOption('shopping')">🛍️ Shopping Spots</button> -->
+        <!-- <button onclick="selectOption('culture')">🏮 Cultural Etiquette</button> -->
+        <button onclick="selectOption('picture')">📸 Picture Galleries</button>
     </div>
+    
     <button id="back-button" class="back-button">Back to Home</button>
+    
     <div class="chat-container">
         <div class="header">Trip Planner in Thailand AI</div>
         <div class="chat-box" id="chat-box">
             <!-- Chat messages will appear here -->
+            <div class="typing-indicator" id="typing-indicator">
+                <span></span>
+                <span></span>
+                <span></span>
+                <div class="typing-text">Your guide is typing...</div>
+            </div>
         </div>
+        
+        <div class="quick-actions">
+            <button class="quick-action-button" onclick="quickAction('bangkok')">Bangkok Highlights</button>
+            <button class="quick-action-button" onclick="quickAction('phuket')">Discover Phuket</button>
+            <button class="quick-action-button" onclick="quickAction('chiangmai')">Chiang Mai Experiences</button>
+            <!-- <button class="quick-action-button" onclick="quickAction('safety')">Travel Safety</button>
+            <button class="quick-action-button" onclick="quickAction('visa')">Visa Requirements</button>
+            <button class="quick-action-button" onclick="quickAction('itinerary')">7-Day Itinerary</button> -->
+        </div>
+        
         <form id="chat-form" method="POST" action="/">
             <div class="input-container">
                 <input type="text" 
