@@ -325,49 +325,66 @@
             color: #888;
             font-size: 14px;
         }
+
+        .stop-button {
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-left: 10px;
+            transition: all 0.2s;
+        }
+
+        .stop-button:hover {
+            background-color: #ff5252;
+            transform: scale(1.05);
+        }
     </style>
     <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
     <script>
         // Function to handle sidebar button clicks
         function selectOption(option) {
-            const inputField = document.getElementById('query-input');
-            switch(option) {
-                case 'hotel':
-                    inputField.value = "Give me a booking link of hotel";
-                    break;
-                case 'transportation':
-                    inputField.value = "What are the transportation options in Thailand?";
-                    break;
-                case 'activities':
-                    inputField.value = "What activities can I do in Thailand?";
-                    break;
-                case 'picture':
-                    inputField.value = "Show me a picture with details about"; 
-                    break;
-                case 'food':
-                    inputField.value = "What are popular Thai dishes I should try?";
-                    break;
-                case 'budget':
-                    inputField.value = "How much should I budget per day in Thailand?";
-                    break;
-                case 'weather':
-                    inputField.value = "What's the weather like in Thailand right now?";
-                    break;
-                case 'culture':
-                    inputField.value = "What cultural etiquette should I be aware of in Thailand?";
-                    break;
-                case 'shopping':
-                    inputField.value = "Where are the best places to shop in Thailand?";
-                    break;
-                case 'beaches':
-                    inputField.value = "Which are the best beaches to visit in Thailand?";
-                    break;
-                case 'temples':
-                    inputField.value = "What are the must-visit temples in Thailand?";
-                    break;
-            }
-            inputField.focus();
+        const inputField = document.getElementById('query-input');
+        switch(option) {
+            case 'hotel':
+                inputField.value = "Give me a booking link of hotel";
+                break;
+            case 'transportation':
+                inputField.value = "What are the transportation options in Thailand?";
+                break;
+            case 'activities':
+                inputField.value = "What activities can I do in Thailand?";
+                break;
+            case 'savepdf':
+                inputField.value = "Save PDF for my travel plan";
+                break;
+            case 'food':
+                inputField.value = "What are popular Thai dishes I should try?";
+                break;
+            case 'budget':
+                inputField.value = "How much should I budget per day in Thailand?";
+                break;
+            case 'weather':
+                inputField.value = "What's the weather like in Thailand right now?";
+                break;
+            case 'culture':
+                inputField.value = "What cultural etiquette should I be aware of in Thailand?";
+                break;
+            case 'shopping':
+                inputField.value = "Where are the best places to shop in Thailand?";
+                break;
+            case 'beaches':
+                inputField.value = "Which are the best beaches to visit in Thailand?";
+                break;
+            case 'temples':
+                inputField.value = "What are the must-visit temples in Thailand?";
+                break;
         }
+        inputField.focus();
+    }
 
         // Function to handle quick action buttons
         function quickAction(action) {
@@ -435,6 +452,8 @@
             scrollToBottom();
         };
 
+        let stopResponse = false;
+
         document.addEventListener('DOMContentLoaded', function() {
             const socket = io();
             const chatForm = document.getElementById('chat-form');
@@ -444,6 +463,14 @@
             // Add back button functionality
             document.getElementById('back-button').addEventListener('click', function() {
                 window.location.href = "{{ url_for('main') }}";
+            });
+
+                    // Add stop button functionality
+            document.getElementById('stop-response-button').addEventListener('click', function() {
+                stopResponse = true;
+                // Hide typing indicator immediately when stop is clicked
+                const indicator = document.getElementById('typing-indicator');
+                indicator.classList.remove('visible');
             });
 
             chatForm.addEventListener('submit', function(event) {
@@ -460,15 +487,35 @@
             });
 
             socket.on('receive_message', function(data) {
-                // Append bot response to chat box
-                setTimeout(() => {
-                    appendMessage('bot', data.message, data.timestamp);
-                    if (data.buttons) {
-                        // Display buttons if provided in the response
-                        displayButtons(data.buttons);
-                    }
+                // Check if stop was requested before showing response
+                if (!stopResponse) {
+                    // Append bot response to chat box
+                    setTimeout(() => {
+                        appendMessage('bot', data.message, data.timestamp);
+                        if (data.buttons) {
+                            // Display buttons if provided in the response
+                            displayButtons(data.buttons);
+                        }
+                        scrollToBottom();
+                    }, 1000); // Slight delay to make it feel more natural
+                } else {
+                    // If stopped, show a message that response was stopped
+                    appendMessage('bot', "Response stopped by user.", new Date().toLocaleString());
                     scrollToBottom();
-                }, 1000); // Slight delay to make it feel more natural
+                }
+            });
+
+            // Add this to your existing socket.io event listeners
+            socket.on('trigger_download', function(data) {
+                // Create a temporary link element
+                const downloadLink = document.createElement('a');
+                downloadLink.href = data.url;
+                downloadLink.download = data.filename;
+                
+                // Append to body, click it to start download, then remove
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
             });
 
             function appendMessage(sender, message, timestamp) {
@@ -520,6 +567,12 @@
                 chatBox.appendChild(messageContainer);
             }
 
+            // Update the showTypingIndicator function to reset the stop flag
+            function showTypingIndicator() {
+                stopResponse = false;
+                const indicator = document.getElementById('typing-indicator');
+                indicator.classList.add('visible');
+            }
             function displayButtons(buttons) {
                 const chatBox = document.getElementById('chat-box');
                 const buttonContainer = document.createElement('div');
@@ -563,7 +616,7 @@
         <button onclick="selectOption('beaches')">🏖️ Beach Destinations</button>
         <!-- <button onclick="selectOption('shopping')">🛍️ Shopping Spots</button> -->
         <!-- <button onclick="selectOption('culture')">🏮 Cultural Etiquette</button> -->
-        <button onclick="selectOption('picture')">📸 Picture Galleries</button>
+        <button onclick="selectOption('savepdf')">📄 Save as PDF</button>
     </div>
     
     <button id="back-button" class="back-button">Back to Home</button>
@@ -577,6 +630,7 @@
                 <span></span>
                 <span></span>
                 <div class="typing-text">Your guide is typing...</div>
+                <button id="stop-response-button" class="stop-button">Stop</button>
             </div>
         </div>
         
