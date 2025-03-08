@@ -23,7 +23,7 @@ app.secret_key = secrets.token_hex(16)
 # Initialize SocketIO
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Google API Key (Don't forget to set your API Key)
+# Google API Key (Don't forget to set your API Key) 
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "AIzaSyDv_OEg50nhbpvW-EtNy3ze-dqsG4tPEEI")
 
 # In-memory session storage - will be replaced with user sessions
@@ -376,23 +376,7 @@ def handle_send_message(data):
             pdf_path = create_pdf_from_history(session_id, destination_name)
             
             if pdf_path:
-                # Instead of just returning a link, provide a direct download URL
-                pdf_filename = f"{destination_name.replace(' ', '_')}_travel_plan.pdf"
-                download_url = f"/download_pdf/{destination_name.replace(' ', '_')}"
-                
-                # Create a response with a direct download link that will trigger immediate download
-                response = f"""
-                <div class="pdf-download">
-                    <p>Your travel plan for {destination_name} has been saved as a PDF.</p>
-                    <a href="{download_url}" class="download-button" download>Download PDF Now</a>
-                </div>
-                """
-                
-                # For automatic download triggering (optional)
-                emit('trigger_download', {
-                    'url': download_url,
-                    'filename': pdf_filename
-                })
+                response = f"Your travel plan for {destination_name} has been saved as a PDF. You can download it here: /{pdf_path}"
             else:
                 response = "There was an error saving the travel plan as a PDF."
             

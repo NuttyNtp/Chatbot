@@ -505,19 +505,6 @@
                 }
             });
 
-            // Add this to your existing socket.io event listeners
-            socket.on('trigger_download', function(data) {
-                // Create a temporary link element
-                const downloadLink = document.createElement('a');
-                downloadLink.href = data.url;
-                downloadLink.download = data.filename;
-                
-                // Append to body, click it to start download, then remove
-                document.body.appendChild(downloadLink);
-                downloadLink.click();
-                document.body.removeChild(downloadLink);
-            });
-
             function appendMessage(sender, message, timestamp) {
                 const messageContainer = document.createElement('div');
                 messageContainer.classList.add('chat-message', sender);
