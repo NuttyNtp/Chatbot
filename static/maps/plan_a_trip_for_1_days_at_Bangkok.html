@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    
+        <script>
+            L_NO_TOUCH = false;
+            L_DISABLE_3D = false;
+        </script>
+    
+    <style>html, body {width: 100%;height: 100%;margin: 0;padding: 0;}</style>
+    <style>#map {position:absolute;top:0;bottom:0;right:0;left:0;}</style>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_f986af9d95b7ac5f9a72d994cc449d3b {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+        
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_f986af9d95b7ac5f9a72d994cc449d3b" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_f986af9d95b7ac5f9a72d994cc449d3b = L.map(
+                "map_f986af9d95b7ac5f9a72d994cc449d3b",
+                {
+                    center: [13.7498558, 100.4915765],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 12,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_975ba3cfcddacc28abb3a5d670ca0dcb = L.tileLayer(
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_975ba3cfcddacc28abb3a5d670ca0dcb.addTo(map_f986af9d95b7ac5f9a72d994cc449d3b);
+        
+    
+            var marker_cf286a5c86e87f89a1c3348c56c62e22 = L.marker(
+                [13.7498558, 100.4915765],
+                {
+}
+            ).addTo(map_f986af9d95b7ac5f9a72d994cc449d3b);
+        
+    
+        var popup_7c2f182ef68905725a299247f2e5fef3 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_8f9fcba8f0461a2cc113c13cae282e38 = $(`<div id="html_8f9fcba8f0461a2cc113c13cae282e38" style="width: 100.0%; height: 100.0%;">The Grand Palace (10:00 AM)</div>`)[0];
+                popup_7c2f182ef68905725a299247f2e5fef3.setContent(html_8f9fcba8f0461a2cc113c13cae282e38);
+            
+        
+
+        marker_cf286a5c86e87f89a1c3348c56c62e22.bindPopup(popup_7c2f182ef68905725a299247f2e5fef3)
+        ;
+
+        
+    
+    
+            marker_cf286a5c86e87f89a1c3348c56c62e22.bindTooltip(
+                `<div>
+                     The Grand Palace
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_b690bc05f1d673288a21d3cbb6600e08 = L.marker(
+                [13.7516435, 100.4927041],
+                {
+}
+            ).addTo(map_f986af9d95b7ac5f9a72d994cc449d3b);
+        
+    
+        var popup_672b7760e76f96ce04d4719572bb4bf1 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_82397119df3875f85ee8a677d9ac7f98 = $(`<div id="html_82397119df3875f85ee8a677d9ac7f98" style="width: 100.0%; height: 100.0%;">The Temple of the Emerald Buddha (11:30 AM)</div>`)[0];
+                popup_672b7760e76f96ce04d4719572bb4bf1.setContent(html_82397119df3875f85ee8a677d9ac7f98);
+            
+        
+
+        marker_b690bc05f1d673288a21d3cbb6600e08.bindPopup(popup_672b7760e76f96ce04d4719572bb4bf1)
+        ;
+
+        
+    
+    
+            marker_b690bc05f1d673288a21d3cbb6600e08.bindTooltip(
+                `<div>
+                     The Temple of the Emerald Buddha
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_ac0122338f6aa335fe8f89f3663aeac2 = L.marker(
+                [13.7482661, 100.4979966],
+                {
+}
+            ).addTo(map_f986af9d95b7ac5f9a72d994cc449d3b);
+        
+    
+        var popup_44746d8760795b266c280ba54213f9dc = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_004c2dd947247b90a972d74beff32251 = $(`<div id="html_004c2dd947247b90a972d74beff32251" style="width: 100.0%; height: 100.0%;">ป้าอร ริมคลอง (1:00 PM)</div>`)[0];
+                popup_44746d8760795b266c280ba54213f9dc.setContent(html_004c2dd947247b90a972d74beff32251);
+            
+        
+
+        marker_ac0122338f6aa335fe8f89f3663aeac2.bindPopup(popup_44746d8760795b266c280ba54213f9dc)
+        ;
+
+        
+    
+    
+            marker_ac0122338f6aa335fe8f89f3663aeac2.bindTooltip(
+                `<div>
+                     ป้าอร ริมคลอง
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_df1bff6c5ed6c94748bb89278a84e62d = L.marker(
+                [13.7438652, 100.488444],
+                {
+}
+            ).addTo(map_f986af9d95b7ac5f9a72d994cc449d3b);
+        
+    
+        var popup_97506e06a498d123d4171aa109a85f77 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_31fcb3af288b78cc5fd3b64571573b04 = $(`<div id="html_31fcb3af288b78cc5fd3b64571573b04" style="width: 100.0%; height: 100.0%;">Wat Arun Ratchawararam Ratchawaramahawihan (3:00 PM)</div>`)[0];
+                popup_97506e06a498d123d4171aa109a85f77.setContent(html_31fcb3af288b78cc5fd3b64571573b04);
+            
+        
+
+        marker_df1bff6c5ed6c94748bb89278a84e62d.bindPopup(popup_97506e06a498d123d4171aa109a85f77)
+        ;
+
+        
+    
+    
+            marker_df1bff6c5ed6c94748bb89278a84e62d.bindTooltip(
+                `<div>
+                     Wat Arun Ratchawararam Ratchawaramahawihan
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_69ac50e82d6f5ea7ddb5e710d5dd3d39 = L.marker(
+                [13.799781, 100.5504245],
+                {
+}
+            ).addTo(map_f986af9d95b7ac5f9a72d994cc449d3b);
+        
+    
+        var popup_6e46c79d754940460ea32c67ce25da64 = L.popup({
+  "maxWidth": "100%",
+});
+
+        
+            
+                var html_07282b1715d4d41c24de34646121fb41 = $(`<div id="html_07282b1715d4d41c24de34646121fb41" style="width: 100.0%; height: 100.0%;">Chatuchak Weekend Market (6:00 PM)</div>`)[0];
+                popup_6e46c79d754940460ea32c67ce25da64.setContent(html_07282b1715d4d41c24de34646121fb41);
+            
+        
+
+        marker_69ac50e82d6f5ea7ddb5e710d5dd3d39.bindPopup(popup_6e46c79d754940460ea32c67ce25da64)
+        ;
+
+        
+    
+    
+            marker_69ac50e82d6f5ea7ddb5e710d5dd3d39.bindTooltip(
+                `<div>
+                     Chatuchak Weekend Market
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+</script>
+</html>

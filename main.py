@@ -12,6 +12,11 @@ from reportlab.pdfgen import canvas
 import re
 import json
 from bs4 import BeautifulSoup
+import folium
+from folium.plugins import MarkerCluster
+import base64
+from io import BytesIO
+import re
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
@@ -29,7 +34,7 @@ GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "AIzaSyDv_OEg50nhbpvW-EtN
 # In-memory session storage - will be replaced with user sessions
 conversation_history = {}
 
-# Google Integration for Maps, Images, and Hotels
+# Google Integration for Places and Images
 class GoogleIntegration:
     @staticmethod
     def get_place_by_name(destination_name):
@@ -55,18 +60,6 @@ class GoogleIntegration:
         return None
 
     @staticmethod
-    def generate_google_maps_embed(latitude, longitude):
-        """
-        Generate an embedded Google Map with a marker using latitude and longitude.
-        Returns the embed code as a string.
-        """
-        return f"""
-        <iframe width="600" height="450" frameborder="0" style="border:0" 
-        src="https://www.google.com/maps/embed/v1/place?key={GOOGLE_MAPS_API_KEY}&q={latitude},{longitude}" 
-        allowfullscreen></iframe>
-        """
-
-    @staticmethod
     def get_place_image_url(place_id):
         """
         Fetch an image URL from Google Places API using the place_id.
@@ -79,7 +72,7 @@ class GoogleIntegration:
             data = response.json()
             if 'result' in data and 'photos' in data['result']:
                 photo_reference = data['result']['photos'][0]['photo_reference']
-                return f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=400&photoreference={photo_reference}&key={GOOGLE_MAPS_API_KEY}"
+                return f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference={photo_reference}&key={GOOGLE_MAPS_API_KEY}"
         logging.error("Failed to fetch place image.")
         return None
 
@@ -91,6 +84,118 @@ class GoogleIntegration:
         """
         destination_encoded = urllib.parse.quote(destination_name)
         return f"https://www.booking.com/searchresults.html?ss={destination_encoded}"
+
+# Folium Map Integration 
+class FoliumMapGenerator:
+    @staticmethod
+    def parse_itinerary_locations(itinerary_text, base_location_name):
+        """
+        Parse itinerary text to extract location names for mapping
+        Returns a list of dictionaries with location names
+        """
+        locations = []
+        
+        # Add the main destination as the first location
+        locations.append({"name": base_location_name, "is_base": True})
+        
+        # Extract locations from itinerary
+        day_pattern = r'Day \d+:.*?(?=Day \d+:|$)'
+        day_matches = re.findall(day_pattern, itinerary_text, re.DOTALL)
+        
+        for day_match in day_matches:
+            # Extract activities with locations
+            activity_lines = [line.strip() for line in day_match.split('\n') if line.strip()]
+            
+            for line in activity_lines:
+                if ':' in line and not line.startswith('Day'):
+                    # Skip the day header, look for activities with locations
+                    activity_parts = line.split(',')
+                    if len(activity_parts) >= 2:
+                        location_name = activity_parts[1].strip()
+                        if location_name and location_name != base_location_name:
+                            locations.append({"name": f"{location_name}, {base_location_name}", "is_base": False})
+        
+        # Remove duplicates while preserving order
+        unique_locations = []
+        seen = set()
+        for loc in locations:
+            if loc["name"] not in seen:
+                unique_locations.append(loc)
+                seen.add(loc["name"])
+                
+        return unique_locations
+
+    @staticmethod
+    def generate_folium_map(locations):
+        """
+        Generate a Folium map with markers for all locations in the itinerary
+        Returns HTML string of the map
+        """
+        # Default to Thailand coordinates if no locations provided
+        default_lat, default_lon = 13.7563, 100.5018  # Bangkok, Thailand
+        
+        # Create a map centered on the first valid location
+        map_center = [default_lat, default_lon]
+        location_data = []
+        all_coordinates = []
+        
+        for location in locations:
+            place_info = GoogleIntegration.get_place_by_name(location["name"])
+            if place_info:
+                lat, lon = place_info['latitude'], place_info['longitude']
+                all_coordinates.append([lat, lon])
+                
+                # Get image URL for the location
+                image_url = GoogleIntegration.get_place_image_url(place_info['place_id'])
+                
+                location_data.append({
+                    "name": place_info['name'],
+                    "address": place_info['address'],
+                    "lat": lat,
+                    "lon": lon,
+                    "is_base": location.get("is_base", False),
+                    "image_url": image_url
+                })
+        
+        # If we have valid coordinates, calculate the center
+        if all_coordinates:
+            avg_lat = sum(coord[0] for coord in all_coordinates) / len(all_coordinates)
+            avg_lon = sum(coord[1] for coord in all_coordinates) / len(all_coordinates)
+            map_center = [avg_lat, avg_lon]
+        
+        # Create base map
+        m = folium.Map(location=map_center, zoom_start=10, tiles="CartoDB positron")
+        
+        # Add marker cluster
+        marker_cluster = MarkerCluster().add_to(m)
+        
+        # Add markers for each location
+        for loc in location_data:
+            popup_html = f"""
+            <div style="width:250px">
+                <h4>{loc['name']}</h4>
+                <p>{loc['address']}</p>
+                {f'<img src="{loc["image_url"]}" style="width:100%;max-height:150px;object-fit:cover">' if loc.get('image_url') else ''}
+            </div>
+            """
+            
+            # Different icon for base location vs. activity locations
+            if loc.get("is_base"):
+                icon = folium.Icon(color="red", icon="home", prefix="fa")
+            else:
+                icon = folium.Icon(color="blue", icon="info-sign")
+                
+            folium.Marker(
+                location=[loc['lat'], loc['lon']],
+                popup=folium.Popup(popup_html, max_width=300),
+                tooltip=loc['name'],
+                icon=icon
+            ).add_to(marker_cluster)
+        
+        # Save map to HTML string
+        map_html = m._repr_html_()
+        
+        return map_html, location_data
 
 # Ollama Integration for AI-Powered Trip Planning
 class OllamaChatbot:
@@ -136,9 +241,8 @@ class DestinationDetailsGenerator:
     def generate_comprehensive_details(destination_name, history=None):
         """
         Generate comprehensive details for a destination, including AI itinerary,
-        Google Maps embed, place image, and hotel booking link.
+        Folium map embed, place images, and hotel booking link.
         This combines information from Ollama and Google APIs.
-        Now includes conversation history for context.
         """
         # Retrieve Ollama's AI-generated travel plan
         ai_itinerary = OllamaChatbot.get_travel_plan(f"Plan a trip to {destination_name}", history)
@@ -148,43 +252,144 @@ class DestinationDetailsGenerator:
         if not dest_info:
             return f"Sorry, I couldn't find information for {destination_name}."
 
-        # Generate Google Maps embed
-        google_maps_embed = GoogleIntegration.generate_google_maps_embed(dest_info['latitude'], dest_info['longitude'])
+        # Parse locations from the itinerary
+        locations = FoliumMapGenerator.parse_itinerary_locations(ai_itinerary, destination_name)
+        
+        # Generate Folium map with all locations
+        folium_map_html, location_data = FoliumMapGenerator.generate_folium_map(locations)
 
-        # Get Place Image
-        image_url = GoogleIntegration.get_place_image_url(dest_info['place_id'])
+        # Get main destination image
+        main_image_url = GoogleIntegration.get_place_image_url(dest_info['place_id'])
 
         # Get Hotel Booking Link
         hotel_booking_link = GoogleIntegration.get_hotel_booking_link(destination_name)
+
+        # Create location gallery HTML
+        location_gallery_html = ""
+        for loc in location_data:
+            if loc.get('image_url'):
+                location_gallery_html += f"""
+                <div class="location-card">
+                    <img src="{loc['image_url']}" alt="{loc['name']}" class="location-image"/>
+                    <div class="location-info">
+                        <h4>{loc['name']}</h4>
+                        <p>{loc['address']}</p>
+                    </div>
+                </div>
+                """
 
         # Prepare HTML response with place details under the image
         response = f"""
         <div class="destination-details-container">
             <h2>{dest_info['name']} - Travel Itinerary</h2>
             
+            <div class="destination-overview">
+                <div class="destination-hero">
+                    {f'<img src="{main_image_url}" alt="{dest_info["name"]} Image" class="hero-image"/>' if main_image_url else ''}
+                    <div class="destination-description">
+                        <h3>{dest_info['name']}</h3>
+                        <p><strong>Address:</strong> {dest_info['address']}</p>
+                        <p><strong>Coordinates:</strong> {dest_info['latitude']}, {dest_info['longitude']}</p>
+                        <a href="{hotel_booking_link}" target="_blank" class="book-button">Find hotels in {dest_info['name']}</a>
+                    </div>
+                </div>
+            </div>
+
             <div class="itinerary-section">
                 <h3>AI-Powered Itinerary</h3>
                 <pre>{ai_itinerary}</pre>
             </div>
 
-            <div class="destination-images-and-info">
-                <h3>Destination Image</h3>
-                {f'<img src="{image_url}" alt="{dest_info["name"]} Image" class="destination-image"/>' if image_url else ''}
-                <div class="destination-description">
-                    <p><strong>Address:</strong> {dest_info['address']}</p>
-                    <p><strong>Coordinates:</strong> {dest_info['latitude']}, {dest_info['longitude']}</p>
+            <div class="map-container">
+                <h3>Interactive Trip Map</h3>
+                <div class="folium-map">{folium_map_html}</div>
+            </div>
+
+            <div class="location-gallery">
+                <h3>Featured Places in Your Itinerary</h3>
+                <div class="gallery-container">
+                    {location_gallery_html}
                 </div>
             </div>
 
-            <div class="destination-location">
-                <h3>Location</h3>
-                <div class="google-maps-embed">{google_maps_embed}</div>
-            </div>
-
-            <div class="hotel-booking">
-                <h3>Book Your Stay</h3>
-                <a href="{hotel_booking_link}" target="_blank">Find hotels in {dest_info['name']}</a>
-            </div>
+            <style>
+                .destination-details-container {{
+                    font-family: 'Arial', sans-serif;
+                    max-width: 1200px;
+                    margin: 0 auto;
+                }}
+                .destination-overview {{
+                    margin-bottom: 30px;
+                }}
+                .destination-hero {{
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 20px;
+                    align-items: center;
+                }}
+                .hero-image {{
+                    max-width: 400px;
+                    border-radius: 8px;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                }}
+                .destination-description {{
+                    flex: 1;
+                    min-width: 300px;
+                }}
+                .book-button {{
+                    display: inline-block;
+                    background-color: #4CAF50;
+                    color: white;
+                    padding: 10px 15px;
+                    text-decoration: none;
+                    border-radius: 4px;
+                    margin-top: 10px;
+                }}
+                .itinerary-section {{
+                    background-color: #f9f9f9;
+                    padding: 20px;
+                    border-radius: 8px;
+                    margin-bottom: 30px;
+                }}
+                .map-container {{
+                    height: 500px;
+                    margin-bottom: 30px;
+                }}
+                .folium-map {{
+                    height: 100%;
+                    border-radius: 8px;
+                    overflow: hidden;
+                }}
+                .location-gallery {{
+                    margin-bottom: 30px;
+                }}
+                .gallery-container {{
+                    display: grid;
+                    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                    gap: 20px;
+                }}
+                .location-card {{
+                    border-radius: 8px;
+                    overflow: hidden;
+                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+                }}
+                .location-image {{
+                    width: 100%;
+                    height: 180px;
+                    object-fit: cover;
+                }}
+                .location-info {{
+                    padding: 15px;
+                }}
+                .location-info h4 {{
+                    margin-top: 0;
+                    margin-bottom: 8px;
+                }}
+                .location-info p {{
+                    margin: 0;
+                    color: #666;
+                }}
+            </style>
         </div>
         """
         return response
@@ -237,7 +442,13 @@ def create_pdf_from_history(session_id, destination_name):
         c.drawString(72, height - 90, f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
         # Extract text content for the PDF
-        text_content = extract_text_from_html(conversation_history[session_id])
+        html_content = ""
+        for message in conversation_history[session_id]:
+            if 'assistant' in message:
+                html_content = message['assistant']
+                break
+                
+        text_content = extract_text_from_html(html_content)
 
         text_object = c.beginText(72, height - 120)
         text_object.setFont("Helvetica", 10)
