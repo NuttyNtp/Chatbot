@@ -235,6 +235,7 @@ class OllamaChatbot:
             return "Sorry, I couldn't generate an itinerary at the moment."
 
 
+
 # Destination Details Generator
 class DestinationDetailsGenerator:
     @staticmethod
@@ -250,7 +251,7 @@ class DestinationDetailsGenerator:
         # Get destination details from Google API
         dest_info = GoogleIntegration.get_place_by_name(destination_name)
         if not dest_info:
-            return f"Sorry, I couldn't find information for {destination_name}."
+            return f"Oops! I couldn't find anything about {destination_name}. Maybe try a different place?"
 
         # Parse locations from the itinerary
         locations = FoliumMapGenerator.parse_itinerary_locations(ai_itinerary, destination_name)
@@ -281,7 +282,7 @@ class DestinationDetailsGenerator:
         # Prepare HTML response with place details under the image
         response = f"""
         <div class="destination-details-container">
-            <h2>{dest_info['name']} - Travel Itinerary</h2>
+            <h2>Excited to Explore {dest_info['name']}? Here's Your Travel Itinerary!</h2>
             
             <div class="destination-overview">
                 <div class="destination-hero">
@@ -290,13 +291,13 @@ class DestinationDetailsGenerator:
                         <h3>{dest_info['name']}</h3>
                         <p><strong>Address:</strong> {dest_info['address']}</p>
                         <p><strong>Coordinates:</strong> {dest_info['latitude']}, {dest_info['longitude']}</p>
-                        <a href="{hotel_booking_link}" target="_blank" class="book-button">Find hotels in {dest_info['name']}</a>
+                        <a href="{hotel_booking_link}" target="_blank" class="book-button">Find your perfect hotel here!</a>
                     </div>
                 </div>
             </div>
 
             <div class="itinerary-section">
-                <h3>AI-Powered Itinerary</h3>
+                <h3>Your Adventure Awaits!</h3>
                 <pre>{ai_itinerary}</pre>
             </div>
 
@@ -306,7 +307,7 @@ class DestinationDetailsGenerator:
             </div>
 
             <div class="location-gallery">
-                <h3>Featured Places in Your Itinerary</h3>
+                <h3>Featured Places You Shouldn't Miss</h3>
                 <div class="gallery-container">
                     {location_gallery_html}
                 </div>
@@ -476,16 +477,27 @@ def handle_message(data):
     
     # Store user message in conversation history
     conversation_history[session_id].append({'user': user_message})
-    
-    # Call the AI chatbot to get the travel plan
-    destination_name = user_message  # Assume user is asking about a destination
-    generated_details = DestinationDetailsGenerator.generate_comprehensive_details(destination_name, conversation_history[session_id])
-    
-    # Store assistant response in conversation history
-    conversation_history[session_id].append({'assistant': generated_details})
+    # Check if the user wants to save the conversation as a PDF
+    if "save pdf" in user_message.lower():
+        # Assume the user is asking to save their travel plan as a PDF
+        destination_name = "Thailand Trip"  # You can extract the destination name from the user's message if necessary
+        pdf_path = create_pdf_from_history(session_id, destination_name)
+        
+        if pdf_path:
+            # Send the PDF back to the user
+            emit('receive_message', {'message': f"Your travel plan PDF has been generated: {pdf_path}"})
+        else:
+            emit('receive_message', {'message': "Sorry, there was an issue generating the PDF."})
+    else:
+        # If the message is not about saving as PDF, continue generating travel plan
+        destination_name = user_message  # Assume user is asking about a destination
+        generated_details = DestinationDetailsGenerator.generate_comprehensive_details(destination_name, conversation_history[session_id])
+        
+        # Store assistant response in conversation history
+        conversation_history[session_id].append({'assistant': generated_details})
 
-    # Send the response back to the client
-    emit('receive_message', {'message': generated_details})
+        # Send the response back to the client
+        emit('receive_message', {'message': generated_details})
 
 
 # PDF download route
