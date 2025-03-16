@@ -9,7 +9,6 @@ import urllib.parse
 import subprocess
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
-import re
 import json
 from bs4 import BeautifulSoup
 import folium
