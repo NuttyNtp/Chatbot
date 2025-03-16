@@ -1,5 +1,5 @@
 import requests
-from flask import Flask, render_template, session, jsonify, send_file
+from flask import Flask, render_template, session, request, jsonify, send_file
 from flask_socketio import SocketIO, emit
 import logging
 import datetime
@@ -199,196 +199,40 @@ class FoliumMapGenerator:
 # Ollama Integration for AI-Powered Trip Planning
 class OllamaChatbot:
     @staticmethod
-    def is_food_query(query):
-        """Check if the query is food-related"""
-        food_keywords = ['food', 'dish', 'eat', 'cuisine', 'restaurant', 'meal', 'thai food', 'spicy', 'dessert']
-        return any(keyword in query.lower() for keyword in food_keywords)
-
-    @staticmethod
-    def get_food_recommendations(query, history=None):
-        """Handle food-specific queries with detailed Thai cuisine information"""
-        try:
-            # Extract dietary preferences from history
-            preferences = ""
-            if history and len(history) > 0:
-                for entry in history[-5:]:
-                    if 'user' in entry and any(word in entry['user'].lower() for word in ['vegetarian', 'spicy', 'allergic', 'vegan']):
-                        preferences += f"User preference: {entry['user']}\n"
-
-            prompt = f"""
-            You are a Thai cuisine expert. Provide detailed recommendations for authentic Thai dishes.
-
-            Previous preferences: {preferences}
-
-            Query: {query}
-
-            Format your response as follows:
-            Must-Try Thai Dishes:
-            1. [Thai name] - [English name]
-            - Description: Brief explanation of the dish
-            - Key ingredients: Main components
-            - Spice level: [Mild/Medium/Hot]
-            - Price range: ฿[range]
-            - Where to find: Recommended places in Thailand
-            - Cultural significance: Brief cultural context
-
-            Please recommend 4-5 dishes with a mix of:
-            - Main dishes
-            - Street food
-            - Desserts or snacks
-            - Regional specialties
-            """
-
-            # Process with Ollama
-            result = subprocess.run(["ollama", "run", "llama3.1:latest", prompt],
-                                  capture_output=True, text=True, timeout=60,
-                                  cwd=os.path.dirname(os.path.abspath(__file__)))
-
-            if result.returncode == 0 and result.stdout.strip():
-                return result.stdout.strip()
-            else:
-                return "I apologize, but I'm having trouble generating food recommendations right now. Please try again."
-
-        except Exception as e:
-            logging.error(f"Error in food recommendations: {str(e)}")
-            return "Sorry, I couldn't process your food query. Please try again."
-
-    @staticmethod
     def get_travel_plan(query, history=None):
-        # Check if this is a food-related query
-        if OllamaChatbot.is_food_query(query):
-            return OllamaChatbot.get_food_recommendations(query, history)
-
+        """
+        Query Ollama for a structured travel itinerary based on the provided query.
+        The query should specify a travel destination, and Ollama generates the itinerary.
+        Now includes conversation history for context.
+        """
         try:
-            # Build the conversation context from history with user preferences
+            # Build the conversation context from history
             context = ""
-            user_preferences = {}
             if history and len(history) > 0:
-                for entry in history[-5:]:
+                for entry in history[-5:]:  # Only use the last 5 exchanges to keep prompt size reasonable
                     if 'user' in entry:
                         context += f"User: {entry['user']}\n"
-                        # Extract user preferences from messages
-                        message = entry['user'].lower()
-                        if 'budget' in message:
-                            user_preferences['budget'] = 'budget-conscious'
-                        if 'luxury' in message:
-                            user_preferences['budget'] = 'luxury'
-                        if 'family' in message:
-                            user_preferences['travel_style'] = 'family'
-                        if 'adventure' in message:
-                            user_preferences['travel_style'] = 'adventure'
-                        if 'culture' in message:
-                            user_preferences['interests'] = 'cultural'
-                        if 'food' in message:
-                            user_preferences['interests'] = 'culinary'
                     if 'assistant' in entry:
                         context += f"Assistant: {entry['assistant']}\n"
             
-            # Enhance prompt with user preferences
-            preference_context = ""
-            if user_preferences:
-                preference_context = "Based on your preferences: \n"
-                for key, value in user_preferences.items():
-                    preference_context += f"- {key.replace('_', ' ').title()}: {value}\n"
-            
             prompt = f"""
-            You are a concise Thailand travel expert. Focus on providing practical, specific recommendations.
+            You are a Thailand travel expert. 
 
-            Previous context: {context}
-            {preference_context}
+            {context}
 
-            Create a focused travel plan for: {query}
-
-            Guidelines:
-            - Recommend real locations with addresses
-            - Include local food spots with Thai names and prices
-            - Add transport options and costs
-            - Mention cultural tips and safety advice
-
-            Format (keep it brief):
-            Welcome to {query}!
-            [2-3 sentence overview]
-
-            Highlights (3-4 must-visit spots):
-            1. [Name] - [Why visit, practical tips]
-            2. [Name] - [Why visit, practical tips]
-            3. [Name] - [Why visit, practical tips]
-
-            Local Food Guide:
-            - [Restaurant name]: [Signature dish] (฿price)
-            - [Restaurant name]: [Signature dish] (฿price)
-
-            Getting Around:
-            - [Transport option]: [Cost, tips]
-            - [Transport option]: [Cost, tips]
-
-            Cultural Tips:
-            - [2-3 essential customs]
-            - [2-3 safety tips]
-
-            Where to Stay:
-            - [Area name]: [Hotel suggestion, price range]
+            Plan a detailed trip itinerary for: {query}.
+            Consider the previous conversation context when responding.
+            Please format the answer like this:
+            - Day 1: Activity, Location, Time
+            - Day 2: Activity, Location, Time
+            - Include hotel recommendations and travel tips.
             """
-
-            
-            logging.info(f"Sending prompt to Ollama for query: {query}")
-            
-            try:
-                # Check if Ollama is running and available
-                test_cmd = subprocess.run(["ollama", "list"], capture_output=True, text=True, timeout=10)
-                if test_cmd.returncode != 0:
-                    logging.error("Ollama service is not running or responding")
-                    return "Error: Ollama service is not available. Please ensure Ollama is running."
-                
-                logging.info(f"Available Ollama models: {test_cmd.stdout}")
-                
-                # Run Ollama with improved error handling and timeout
-                result = subprocess.run(["ollama", "run", "llama3.1:latest", prompt],
-                                      capture_output=True, text=True, timeout=180,  # Increased timeout
-                                      cwd=os.path.dirname(os.path.abspath(__file__)))
-                
-                # Process Ollama response with improved error handling
-                if result.returncode != 0:
-                    error_msg = result.stderr.strip() if result.stderr else "Unknown error"
-                    logging.error(f"Ollama process failed with error: {error_msg}")
-                    return f"Error: Unable to generate travel plan. {error_msg}"
-                
-                response = result.stdout.strip()
-                if not response:
-                    logging.error("Ollama returned empty response")
-                    return "Error: No response received from Ollama. Please try again."
-                
-                if result.stderr:
-                    logging.warning(f"Ollama warnings: {result.stderr}")
-                
-                # Validate response format
-                if len(response.split('\n')) < 5:  # Basic validation for minimum content
-                    logging.warning("Ollama response seems incomplete")
-                    return "Error: Generated travel plan seems incomplete. Please try again."
-                
-                logging.info("Successfully generated travel plan with Ollama")
-                return result.stdout.strip()
-                
-            except FileNotFoundError:
-                logging.error("Ollama command not found. Is Ollama installed?")
-                return "Error: Ollama is not installed on the server. Please contact support."
-                
-            except subprocess.TimeoutExpired as e:
-                logging.error(f"Ollama process timed out after {e.timeout} seconds")
-                try:
-                    subprocess.run(["pkill", "-f", "ollama"])  # Kill any running Ollama processes
-                    logging.info("Successfully terminated timed out Ollama process")
-                except Exception as kill_error:
-                    logging.error(f"Error killing timed out process: {kill_error}")
-                return "Error: Travel plan generation timed out. Please try a simpler query or try again later."
-                
-            except Exception as e:
-                logging.error(f"Unexpected error in Ollama process: {str(e)}")
-                return "Error: An unexpected error occurred. Please try again later."
-                
+            result = subprocess.run(["ollama", "run", "llama3.1:latest", prompt], capture_output=True, text=True)
+            return result.stdout.strip()
         except Exception as e:
-            logging.error(f"General error in get_travel_plan: {str(e)}")
-            return "Sorry, an error occurred while creating travel plan."
+            logging.error(f"Ollama error: {e}")
+            return "Sorry, I couldn't generate an itinerary at the moment."
+
 
 
 # Destination Details Generator
@@ -598,12 +442,13 @@ def create_pdf_from_history(session_id, destination_name):
         c.drawString(72, height - 90, f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
         
         # Extract text content for the PDF
-        text_content = "Travel History:\n\n"
+        html_content = ""
         for message in conversation_history[session_id]:
-            if 'user' in message:
-                text_content += f"Question: {message['user']}\n"
-            elif 'assistant' in message:
-                text_content += f"Answer: {message['assistant']}\n\n"
+            if 'assistant' in message:
+                html_content = message['assistant']
+                break
+                
+        text_content = extract_text_from_html(html_content)
 
         text_object = c.beginText(72, height - 120)
         text_object.setFont("Helvetica", 10)
@@ -623,7 +468,7 @@ def create_pdf_from_history(session_id, destination_name):
 @socketio.on('send_message')
 def handle_message(data):
     user_message = data['message']
-    session_id = data.get('session_id', str(datetime.datetime.now().timestamp()))
+    session_id = request.sid
     logging.info(f"User message: {user_message} (Session: {session_id})")
     
     if session_id not in conversation_history:
