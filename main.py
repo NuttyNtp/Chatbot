@@ -16,6 +16,7 @@ from folium.plugins import MarkerCluster
 import base64
 from io import BytesIO
 import re
+from datetime import datetime
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
@@ -94,13 +95,13 @@ class FoliumMapGenerator:
     @staticmethod
     def parse_itinerary_locations(itinerary_text, base_location_name):
         """
-        Parse itinerary text to extract location names for mapping.
-        Returns a list of dictionaries with location names and activities.
+        Parse itinerary text to extract location names and activities.
+        Returns a list of dictionaries with location details.
         """
         locations = []
         # Add the main destination as the first location
-        locations.append({"name": base_location_name, "is_base": True})
-        
+        locations.append({"name": base_location_name, "is_base": True, "activity": f"Main Destination: {base_location_name}"})
+
         # Define patterns to match different types of places
         place_patterns = {
             "temple": r"(?:วัด|temple)\s*([\w\s]+)",
@@ -110,11 +111,10 @@ class FoliumMapGenerator:
             "beach": r"(?:ชายหาด|beach)\s*([\w\s]+)",
             "general": r"at\s+([\w\s]+)"
         }
-        
+
         # Extract locations from itinerary using regex
         day_pattern = r'Day \d+:.*?(?=Day \d+:|$)'
         day_matches = re.findall(day_pattern, itinerary_text, re.DOTALL)
-        
         for day_match in day_matches:
             activity_lines = [line.strip() for line in day_match.split('\n') if line.strip()]
             for line in activity_lines:
@@ -144,7 +144,7 @@ class FoliumMapGenerator:
                                 "activity": line,
                                 "is_base": False
                             })
-        
+
         # Remove duplicates while preserving order
         unique_locations = []
         seen = set()
@@ -158,14 +158,14 @@ class FoliumMapGenerator:
     def generate_folium_map(locations, google_integration):
         """
         Generate a Folium map with markers for all locations in the itinerary and draw optimal routes.
-        Returns HTML string of the map.
+        Returns HTML string of the map and location data.
         """
         default_lat, default_lon = 13.7563, 100.5018  # Bangkok, Thailand
         map_center = [default_lat, default_lon]
         location_data = []
         all_coordinates = []
 
-        # Fetch coordinates for each location
+        # Fetch coordinates and images for each location
         for location in locations:
             place_info = google_integration.get_place_by_name(location["name"])
             if place_info:
@@ -299,11 +299,14 @@ class DestinationDetailsGenerator:
         """
         # Step 1: Retrieve Ollama's AI-generated travel plan
         ai_itinerary = OllamaChatbot.get_travel_plan(f"Plan a trip to {destination_name}", history)
+
+        # Get current timestamp
+        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # Step 2: Get destination details from Google API
         dest_info = GoogleIntegration.get_place_by_name(destination_name)
         if not dest_info:
-            return f"Oops! I couldn't find anything about {destination_name}. Maybe try a different place?"
+            return f"I couldn't find anything about {destination_name}. Maybe try a different place?"
         
         # Step 3: Parse locations from the itinerary using FoliumMapGenerator
         locations = FoliumMapGenerator.parse_itinerary_locations(ai_itinerary, destination_name)
@@ -334,7 +337,7 @@ class DestinationDetailsGenerator:
                     </div>
                 </div>
                 """
-        
+                
         # Prepare HTML response with place details under the image
         response = f"""
         <div class="destination-details-container">
@@ -448,6 +451,11 @@ class DestinationDetailsGenerator:
                     margin: 0;
                     color: #666;
                 }}
+                .timestamp {{
+                font-size: 14px;
+                color: #666;
+                margin-bottom: 20px;
+                }}
             </style>
         </div>
         """
@@ -514,29 +522,39 @@ def handle_message(data):
     user_message = data['message']
     session_id = request.sid
     logging.info(f"User message: {user_message} (Session: {session_id})")
+
     if session_id not in conversation_history:
         conversation_history[session_id] = []
     # Store user message in conversation history
     conversation_history[session_id].append({'user': user_message})
+
     # Check if the user wants to save the conversation as a PDF
     if "save pdf" in user_message.lower():
         # Assume the user is asking to save their travel plan as a PDF
         destination_name = "Thailand Trip"  # You can extract the destination name from the user's message if necessary
         pdf_path = create_pdf_from_history(session_id, destination_name)
         if pdf_path:
-            # Send the PDF back to the user
-            emit('receive_message', {'message': f"Your travel plan PDF has been generated: {pdf_path}"})
+            emit('receive_message', {
+                'message': f"Your travel plan PDF has been generated: {pdf_path}",
+                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
         else:
-            emit('receive_message', {'message': "Sorry, there was an issue generating the PDF."})
+            emit('receive_message', {
+                'message': "Sorry, there was an issue generating the PDF.",
+                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            })
     else:
         # If the message is not about saving as PDF, continue generating travel plan
         destination_name = user_message  # Assume user is asking about a destination
         generated_details = DestinationDetailsGenerator.generate_comprehensive_details(destination_name, conversation_history[session_id])
         # Store assistant response in conversation history
         conversation_history[session_id].append({'assistant': generated_details})
-        # Send the response back to the client
-        emit('receive_message', {'message': generated_details})
-
+        # Send response with timestamp
+        emit('receive_message', {
+            'message': generated_details,
+            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+        
 # PDF download route
 @app.route('/download_pdf/<session_id>/<destination_name>', methods=['GET'])
 def download_pdf(session_id, destination_name):
@@ -562,4 +580,4 @@ def chat_page():
     return render_template('index.html')
 
 if __name__ == '__main__':
-    socketio.run(app, debug=True)
+    socketio.run(app, debug=False)
