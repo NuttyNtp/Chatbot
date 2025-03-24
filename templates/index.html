@@ -349,6 +349,9 @@
         function selectOption(option) {
         const inputField = document.getElementById('query-input');
         switch(option) {
+            case 'Plan':
+                inputField.value = "Plan a trip to ?";
+                break;
             case 'hotel':
                 inputField.value = "Give me a booking link of hotel";
                 break;
@@ -361,27 +364,6 @@
             case 'savepdf':
                 inputField.value = "Save PDF for my travel plan";
                 break;
-            case 'food':
-                inputField.value = "What are popular Thai dishes I should try?";
-                break;
-            case 'budget':
-                inputField.value = "How much should I budget per day in Thailand?";
-                break;
-            case 'weather':
-                inputField.value = "What's the weather like in Thailand right now?";
-                break;
-            case 'culture':
-                inputField.value = "What cultural etiquette should I be aware of in Thailand?";
-                break;
-            case 'shopping':
-                inputField.value = "Where are the best places to shop in Thailand?";
-                break;
-            case 'beaches':
-                inputField.value = "Which are the best beaches to visit in Thailand?";
-                break;
-            case 'temples':
-                inputField.value = "What are the must-visit temples in Thailand?";
-                break;
         }
         inputField.focus();
     }
@@ -390,21 +372,6 @@
         function quickAction(action) {
             const inputField = document.getElementById('query-input');
             switch(action) {
-                case 'bangkok':
-                    inputField.value = "What should I do in Bangkok?";
-                    break;
-                case 'phuket':
-                    inputField.value = "Tell me about Phuket";
-                    break;
-                case 'chiangmai':
-                    inputField.value = "What to see in Chiang Mai?";
-                    break;
-                case 'safety':
-                    inputField.value = "Is Thailand safe for tourists?";
-                    break;
-                case 'visa':
-                    inputField.value = "Do I need a visa for Thailand?";
-                    break;
                 case 'itinerary':
                     inputField.value = "Can you suggest a 7-day Thailand itinerary?";
                     break;
@@ -591,18 +558,12 @@
         <div class="sidebar-title">THAILAND EXPLORER</div>
         
         <div class="category-header">Essential Services</div>
+        <button onclick="selectOption('Plan')">📍 Ask a plan</button>
         <button onclick="selectOption('hotel')">🏨 Booking Hotel Link</button>
         <button onclick="selectOption('transportation')">🚕 Transportation Options</button>
-        <!-- <button onclick="selectOption('weather')">☀️ Weather Information</button> -->
-        <button onclick="selectOption('budget')">💰 Budget Planning</button>
         
         <div class="category-header">Experiences</div>
         <button onclick="selectOption('activities')">🎭 Activities & Adventures</button>
-        <button onclick="selectOption('food')">🍜 Thai Cuisine Guide</button>
-        <button onclick="selectOption('temples')">🛕 Temple Tours</button>
-        <button onclick="selectOption('beaches')">🏖️ Beach Destinations</button>
-        <!-- <button onclick="selectOption('shopping')">🛍️ Shopping Spots</button> -->
-        <!-- <button onclick="selectOption('culture')">🏮 Cultural Etiquette</button> -->
         <button onclick="selectOption('savepdf')">📄 Save as PDF</button>
     </div>
     
@@ -621,14 +582,11 @@
             </div>
         </div>
         
-        <div class="quick-actions">
+        <!-- <div class="quick-actions">
             <button class="quick-action-button" onclick="quickAction('bangkok')">Bangkok Highlights</button>
             <button class="quick-action-button" onclick="quickAction('phuket')">Discover Phuket</button>
             <button class="quick-action-button" onclick="quickAction('chiangmai')">Chiang Mai Experiences</button>
-            <!-- <button class="quick-action-button" onclick="quickAction('safety')">Travel Safety</button>
-            <button class="quick-action-button" onclick="quickAction('visa')">Visa Requirements</button>
-            <button class="quick-action-button" onclick="quickAction('itinerary')">7-Day Itinerary</button> -->
-        </div>
+        </div> -->
         
         <form id="chat-form" method="POST" action="/">
             <div class="input-container">

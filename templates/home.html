@@ -19,12 +19,16 @@
         }
         .header {
             background-color: #f1f1cb;
+            color: black;
             padding: 20px;
             display: flex;
             align-items: center;
+            flex-direction: row;
+            justify-content: center;
+            gap: 20px;
         }
         .logo {
-            width: 75px;
+            width: 100px;
         }
         .main-content {
             text-align: center;
@@ -128,18 +132,22 @@
             opacity: 1;
             visibility: visible;
         }
-        .footer {
-            background: #fae5ec;
-            text-align: center;
-            padding: 15px;
-            font-size: 14px;
-        }
         .gif-image {
             width: 100%;
             max-width: 600px;
             border-radius: 20px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             margin-bottom: 30px;
+        }
+        .footer {
+            background: #fae5ec;
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
         }
     </style>
     <script>
@@ -163,18 +171,30 @@
             localStorage.setItem('initialQuery', question);  // เก็บคำถามใน localStorage
             window.location.href = "{{ url_for('chat_page') }}";  // ไปยังหน้า chat
         }
+
+        function toggleSection(sectionId) {
+        const sections = ['about-section', 'contact-section'];
+        sections.forEach(id => {
+            if (id !== sectionId) {
+                document.getElementById(id).style.display = 'none';
+            }
+        });
+
+        const section = document.getElementById(sectionId);
+        section.style.display = section.style.display === 'block' ? 'none' : 'block';
+        }
     </script>
 </head>
 <body>
     <div class="header">
         <img src="{{ url_for('static', filename='asset/KU_SubLogo.png') }}" alt="KU Logo" class="logo">
+        <h1 class="main-title">Welcome to Trip Planner</h1>
     </div>
     
     <div class="main-content">
         <img src="{{ url_for('static', filename='asset/thai.gif') }}" alt="Thai Flag" class="gif-banner">
-        <h1 class="main-title">Welcome to Trip Planner - AI Travel in Thailand!</h1>
+        <h1 class="main-title">Trip Planner - AI Travel in Thailand!</h1>
         <p class="subtitle">Your personal AI tour guide, ready to unlock the best of Thailand!</p>
-        
         <div class="search-box">
             <input type="text" placeholder="What would you like to know about Thailand?">
             <button>Send</button>
@@ -205,16 +225,20 @@
         <div class="popular-questions">
             <h2 class="section-title">Popular Questions</h2>
             <div class="grid">
-                <div class="card" onclick="handlePopularQuestion('Best places to visit in Bangkok?')">📍 Best places to visit in Bangkok?</div>
-                <div class="card" onclick="handlePopularQuestion('How to travel around Thailand?')">🚆 How to travel around Thailand?</div>
-                <div class="card" onclick="handlePopularQuestion('Where to find the best street food?')">🍜 Where to find the best street food?</div>
-                <div class="card" onclick="handlePopularQuestion('When is the best time to visit Phuket?')">🌤️ When is the best time to visit Phuket?</div>
+                <div class="card" onclick="handlePopularQuestion('Can you suggest a 3-day trip in ')">📍 Trip for 3 days</div>
+                <div class="card" onclick="handlePopularQuestion('What are some must-visit places for a weekend trip to Chiang Mai?')">🚆 Trip to Chiang Mai for weekend</div>
+                <div class="card" onclick="handlePopularQuestion('I’m traveling to Thailand for 7 days with my family. Can you help me plan an itinerary that includes cultural sites and relaxing beaches?')">🌤️ Trip with family for 7 days</div>
+                <div class="card" onclick="handlePopularQuestion('I’m planning a 10-day solo trip to Northern Thailand in December.Can you create a detailed plan for me?')">🍜 Trip solo in Thailand</div>
             </div>
         </div>
     </div>
     
     <div class="footer">
-        By: Tangmo & Nutty | Contact: 0000000
+        <p>© 2025 Create by</p>
+        <p>Napalamol Pimtaprom | contact: napakmol.p@ku.th</p>
+        <p>Nattaporn Kaewthong | contact: nattaporn.kaewt@ku.th</p>
+        </div>
+        </div>
     </div>
 </body>
 </html>
