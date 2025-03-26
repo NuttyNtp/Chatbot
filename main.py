@@ -81,14 +81,10 @@ class GoogleIntegration:
     @staticmethod
     def get_hotel_booking_link(destination_name):
         """
-        Generate a hotel booking link for the destination.
-        It encodes the destination name into the URL for Booking.com.
-        The 'dest_id' parameter is used to restrict results to Thailand.
+        Generate a hotel booking link using Google Search results for accurate hotel listings.
         """
-        # Encode destination name
-        destination_encoded = urllib.parse.quote(destination_name)
-        # Use 'dest_id=293406' to specify Thailand as the search region
-        return f"https://www.booking.com/searchresults.html?ss={destination_encoded}&dest_id=293406&dest_type=country"
+        search_query = urllib.parse.quote(f"hotel booking {destination_name}")
+        return f"https://www.google.com/search?q={search_query}"
 
 # Folium Map Integration 
 class FoliumMapGenerator:
@@ -248,15 +244,13 @@ class FoliumMapGenerator:
 
         map_html = m._repr_html_()
         return map_html, location_data
-
-# Ollama Integration for AI-Powered Trip Planning
 class OllamaChatbot:
     @staticmethod
     def get_travel_plan(query, history=None):
         """
-        Query Ollama for a structured travel itinerary based on the provided query.
-        The query should specify a travel destination, and Ollama generates the itinerary.
-        Now includes conversation history for context.
+        Query Ollama for a travel-related response. 
+        If the query asks for a trip itinerary, generate a detailed itinerary.
+        If the query asks general information, provide a general travel response.
         """
         try:
             # Build the conversation context from history
@@ -267,28 +261,60 @@ class OllamaChatbot:
                         context += f"User: {entry['user']}\n"
                     if 'assistant' in entry:
                         context += f"Assistant: {entry['assistant']}\n"
-            prompt = f"""
-            You are a Thailand travel expert. 
-            {context}
-            Plan a detailed trip itinerary for: {query}.
-            Consider the previous conversation context when responding.
-            Please format the answer like this:
-            - Day 1: Activity, Location, Time
-            - Day 2: Activity, Location, Time
-            - Include hotel recommendations and travel tips.
-            """
-            result = subprocess.run(
-                ["ollama", "run", "llama3.1:latest", prompt],
-                capture_output=True,
-                text=True,
-                encoding='utf-8'  # Specify UTF-8 encoding explicitly
-            )
-            return result.stdout.strip()
+
+            # Check if the query asks for an itinerary or general information
+            if "plan a trip" in query.lower() or "itinerary" in query.lower():
+                # User asks for an itinerary
+                return OllamaChatbot._generate_itinerary(query, context)
+            else:
+                # User asks for general information about a place
+                return OllamaChatbot._generate_travel_information(query, context)
         except Exception as e:
             logging.error(f"Ollama error: {e}")
-            return "Sorry, I couldn't generate an itinerary at the moment."
+            return "Sorry, I couldn't generate a response at the moment."
 
-# Destination Details Generator
+    @staticmethod
+    def _generate_itinerary(query, context):
+        """
+        Generate a detailed itinerary when the user asks for a trip plan.
+        """
+        prompt = f"""
+        You are a Thailand travel expert. 
+        {context}
+        Plan a detailed trip itinerary for: {query}.
+        Please format the answer like this:
+        - Day 1: Activity, Location, Time
+        - Day 2: Activity, Location, Time
+        - Include hotel recommendations and travel tips.
+        """
+        result = subprocess.run(
+            ["ollama", "run", "llama3.1:latest", prompt],
+            capture_output=True,
+            text=True,
+            encoding='utf-8'  # Specify UTF-8 encoding explicitly
+        )
+        return result.stdout.strip()
+
+    @staticmethod
+    def _generate_travel_information(query, context):
+        """
+        Generate general travel information about a location or activity.
+        """
+        prompt = f"""
+        You are a Thailand travel expert. 
+        {context}
+        Provide general information about: {query}.
+        Answer in a conversational style, providing helpful and engaging details about the destination.
+        """
+        result = subprocess.run(
+            ["ollama", "run", "llama3.1:latest", prompt],
+            capture_output=True,
+            text=True,
+            encoding='utf-8'  # Specify UTF-8 encoding explicitly
+        )
+        return result.stdout.strip()
+
+
 class DestinationDetailsGenerator:
     @staticmethod
     def generate_comprehensive_details(destination_name, history=None):
@@ -300,166 +326,81 @@ class DestinationDetailsGenerator:
         # Step 1: Retrieve Ollama's AI-generated travel plan
         ai_itinerary = OllamaChatbot.get_travel_plan(f"Plan a trip to {destination_name}", history)
 
-        # Get current timestamp
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Step 2: Get destination details from Google API
-        dest_info = GoogleIntegration.get_place_by_name(destination_name)
-        if not dest_info:
-            return f"I couldn't find anything about {destination_name}. Maybe try a different place?"
-        
-        # Step 3: Parse locations from the itinerary using FoliumMapGenerator
-        locations = FoliumMapGenerator.parse_itinerary_locations(ai_itinerary, destination_name)
-        
-        # Step 4: Generate Folium map with all locations in the itinerary
-        google_integration = GoogleIntegration()
-        folium_map_html, location_data = FoliumMapGenerator.generate_folium_map(locations, google_integration)
-        
-        # Step 5: Get main destination image
-        main_image_url = GoogleIntegration.get_place_image_url(dest_info['place_id'])
-        
-        # Step 6: Get Hotel Booking Link
-        hotel_booking_link = GoogleIntegration.get_hotel_booking_link(destination_name
-        )
-        
-        # Step 7: Create location gallery HTML
-        location_gallery_html = ""
-        for loc in location_data:
-            if loc.get('image_url'):
-                location_gallery_html += f"""
-                <div class="location-card">
-                    <img src="{loc['image_url']}" alt="{loc['name']}" class="location-image"/>
-                    <div class="location-info">
-                        <h4>{loc['name']}</h4>
-                        <p>{loc['address']}</p>
-                        <p><strong>Type:</strong> {loc.get('type', 'General')}</p>
-                        <p><strong>Activity:</strong> {loc['activity']}</p>
+        # If AI itinerary contains itinerary details, generate map, images, etc.
+        if "Day" in ai_itinerary:
+            # Get current timestamp
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            # Step 2: Get destination details from Google API
+            dest_info = GoogleIntegration.get_place_by_name(destination_name)
+            if not dest_info:
+                return f"I couldn't find anything about {destination_name}. Maybe try a different place?"
+            
+            # Step 3: Parse locations from the itinerary using FoliumMapGenerator
+            locations = FoliumMapGenerator.parse_itinerary_locations(ai_itinerary, destination_name)
+            
+            # Step 4: Generate Folium map with all locations in the itinerary
+            google_integration = GoogleIntegration()
+            folium_map_html, location_data = FoliumMapGenerator.generate_folium_map(locations, google_integration)
+            
+            # Step 5: Get main destination image
+            main_image_url = GoogleIntegration.get_place_image_url(dest_info['place_id'])
+            
+            # Step 6: Get Hotel Booking Link
+            hotel_booking_link = GoogleIntegration.get_hotel_booking_link(destination_name)
+            
+            # Step 7: Create location gallery HTML
+            location_gallery_html = ""
+            for loc in location_data:
+                if loc.get('image_url'):
+                    location_gallery_html += f"""
+                    <div class="location-card">
+                        <img src="{loc['image_url']}" alt="{loc['name']}" class="location-image"/>
+                        <div class="location-info">
+                            <h4>{loc['name']}</h4>
+                            <p>{loc['address']}</p>
+                            <p><strong>Type:</strong> {loc.get('type', 'General')}</p>
+                            <p><strong>Activity:</strong> {loc['activity']}</p>
+                        </div>
+                    </div>
+                    """
+                    
+            # Prepare HTML response with place details under the image
+            response = f"""
+            <div class="destination-details-container">
+                <h2>Excited to Explore {dest_info['name']}? Here's Your Travel Itinerary!</h2>
+                <div class="destination-overview">
+                    <div class="destination-hero">
+                        {f'<img src="{main_image_url}" alt="{dest_info["name"]} Image" class="hero-image"/>' if main_image_url else ''}
+                        <div class="destination-description">
+                            <h3>{dest_info['name']}</h3>
+                            <p><strong>Address:</strong> {dest_info['address']}</p>
+                            <p><strong>Coordinates:</strong> {dest_info['latitude']}, {dest_info['longitude']}</p>
+                            <a href="{hotel_booking_link}" target="_blank" class="book-button">Find Hotel in {destination_name}!</a>
+                        </div>
                     </div>
                 </div>
-                """
-                
-        # Prepare HTML response with place details under the image
-        response = f"""
-        <div class="destination-details-container">
-            <h2>Excited to Explore {dest_info['name']}? Here's Your Travel Itinerary!</h2>
-            <div class="destination-overview">
-                <div class="destination-hero">
-                    {f'<img src="{main_image_url}" alt="{dest_info["name"]} Image" class="hero-image"/>' if main_image_url else ''}
-                    <div class="destination-description">
-                        <h3>{dest_info['name']}</h3>
-                        <p><strong>Address:</strong> {dest_info['address']}</p>
-                        <p><strong>Coordinates:</strong> {dest_info['latitude']}, {dest_info['longitude']}</p>
-                        <!-- Add Find Hotel Button -->
-                        <a href="{hotel_booking_link}" target="_blank" class="book-button">Find Hotel in {destination_name}!</a>
+                <div class="itinerary-section">
+                    <h3>Your Adventure Awaits!</h3>
+                    <pre class="formatted-itinerary">{ai_itinerary}</pre>
+                </div>
+                <div class="map-container">
+                    <h3>Interactive Trip Map</h3>
+                    <div class="folium-map">{folium_map_html}</div>
+                </div>
+                <div class="location-gallery">
+                    <h3>Featured Places You Shouldn't Miss</h3>
+                    <div class="gallery-container">
+                        {location_gallery_html}
                     </div>
                 </div>
             </div>
-            <div class="itinerary-section">
-                <h3>Your Adventure Awaits!</h3>
-                <pre class="formatted-itinerary">{ai_itinerary}</pre>
-            </div>
-            <div class="map-container">
-                <h3>Interactive Trip Map</h3>
-                <div class="folium-map">{folium_map_html}</div>
-            </div>
-            <div class="location-gallery">
-                <h3>Featured Places You Shouldn't Miss</h3>
-                <div class="gallery-container">
-                    {location_gallery_html}
-                </div>
-            </div>
-            <style>
-                .destination-details-container {{
-                    font-family: 'Arial', sans-serif;
-                    max-width: 1200px;
-                    margin: 0 auto;
-                }}
-                .destination-overview {{
-                    margin-bottom: 30px;
-                }}
-                .destination-hero {{
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 20px;
-                    align-items: center;
-                }}
-                .hero-image {{
-                    max-width: 400px;
-                    border-radius: 8px;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-                }}
-                .destination-description {{
-                    flex: 1;
-                    min-width: 300px;
-                }}
-                .book-button {{
-                    display: inline-block;
-                    background-color: #4CAF50;
-                    color: white;
-                    padding: 10px 15px;
-                    text-decoration: none;
-                    border-radius: 4px;
-                    margin-top: 10px;
-                }}
-                .itinerary-section {{
-                    background-color: #f9f9f9;
-                    padding: 20px;
-                    border-radius: 8px;
-                    margin-bottom: 30px;
-                }}
-                .formatted-itinerary {{
-                    white-space: pre-wrap; /* Allow wrapping of long lines */
-                    word-break: break-word; /* Break long words if necessary */
-                    max-width: 100%; /* Ensure it doesn't overflow */
-                    font-size: 14px; /* Adjust font size for better readability */
-                }}
-                .map-container {{
-                    height: 500px;
-                    margin-bottom: 30px;
-                }}
-                .folium-map {{
-                    height: 100%;
-                    border-radius: 8px;
-                    overflow: hidden;
-                }}
-                .location-gallery {{
-                    margin-bottom: 30px;
-                }}
-                .gallery-container {{
-                    display: grid;
-                    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-                    gap: 20px;
-                }}
-                .location-card {{
-                    border-radius: 8px;
-                    overflow: hidden;
-                    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-                }}
-                .location-image {{
-                    width: 100%;
-                    height: 180px;
-                    object-fit: cover;
-                }}
-                .location-info {{
-                    padding: 15px;
-                }}
-                .location-info h4 {{
-                    margin-top: 0;
-                    margin-bottom: 8px;
-                }}
-                .location-info p {{
-                    margin: 0;
-                    color: #666;
-                }}
-                .timestamp {{
-                font-size: 14px;
-                color: #666;
-                margin-bottom: 20px;
-                }}
-            </style>
-        </div>
-        """
-        return response
+            """
+            return response
+        else:
+            return ai_itinerary  # Return general information if no itinerary is generated
+
+
 
 # Extract text content from HTML for PDF
 def extract_text_from_html(html_content):
