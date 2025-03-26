@@ -9,6 +9,9 @@ import urllib.parse
 import subprocess
 from reportlab.lib.pagesizes import letter
 from reportlab.pdfgen import canvas
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
 import json
 from bs4 import BeautifulSoup
 import folium
@@ -97,7 +100,7 @@ class GoogleIntegration:
             "dest_type": "city",            # ระบุให้ค้นหาตามเมือง/จังหวัด
         }
         return f"{base_url}?{urllib.parse.urlencode(params)}"
-    
+
 # Folium Map Integration 
 class FoliumMapGenerator:
     @staticmethod
@@ -119,11 +122,15 @@ class FoliumMapGenerator:
             "general": r"at\s+([\w\s]+)"
         }
         
+        # Keywords to exclude unwanted places
+        excluded_keywords = ["nightclub", "club", "office", "agency", "tour", "company"]
+        
         # Extract locations from itinerary using regex
         day_pattern = r'Day \d+:.*?(?=Day \d+:|$)'
         day_matches = re.findall(day_pattern, itinerary_text, re.DOTALL)
         for day_match in day_matches:
             activity_lines = [line.strip() for line in day_match.split('\n') if line.strip()]
+            daily_locations = []
             for line in activity_lines:
                 matched = False
                 for place_type, pattern in place_patterns.items():
@@ -131,30 +138,33 @@ class FoliumMapGenerator:
                     if match:
                         location_name = match.group(1).strip()
                         if location_name and location_name != base_location_name:
-                            # Filter out non-tourist locations like hotels or agencies
-                            if place_type in ["temple", "mountain", "market", "beach"]:
-                                locations.append({
-                                    "name": f"{location_name}, {base_location_name}",
-                                    "type": place_type,
-                                    "activity": line,
-                                    "is_base": False
-                                })
-                            matched = True
-                            break
+                            # Exclude unwanted places
+                            if not any(keyword in location_name.lower() for keyword in excluded_keywords):
+                                if len(daily_locations) < 4:  # Limit to 4 locations per day
+                                    daily_locations.append({
+                                        "name": f"{location_name}, {base_location_name}",
+                                        "type": place_type,
+                                        "activity": line,
+                                        "is_base": False
+                                    })
+                                matched = True
+                                break
                 if not matched:
                     # If no specific type matches, try general extraction
                     general_match = re.search(place_patterns["general"], line, re.IGNORECASE)
                     if general_match:
                         location_name = general_match.group(1).strip()
                         if location_name and location_name != base_location_name:
-                            # Exclude business-related locations
-                            if not any(keyword in location_name.lower() for keyword in ["tour", "agency", "company"]):
-                                locations.append({
-                                    "name": f"{location_name}, {base_location_name}",
-                                    "type": "general",
-                                    "activity": line,
-                                    "is_base": False
-                                })
+                            # Exclude unwanted places
+                            if not any(keyword in location_name.lower() for keyword in excluded_keywords):
+                                if len(daily_locations) < 4:  # Limit to 4 locations per day
+                                    daily_locations.append({
+                                        "name": f"{location_name}, {base_location_name}",
+                                        "type": "general",
+                                        "activity": line,
+                                        "is_base": False
+                                    })
+            locations.extend(daily_locations)
         
         # Remove duplicates while preserving order
         unique_locations = []
@@ -175,6 +185,7 @@ class FoliumMapGenerator:
         map_center = [default_lat, default_lon]
         location_data = []
         all_coordinates = []
+        image_cache = {}  # Cache images to avoid duplicates
         
         # Fetch coordinates and images for each location
         for location in locations:
@@ -182,7 +193,15 @@ class FoliumMapGenerator:
             if place_info:
                 lat, lon = place_info['latitude'], place_info['longitude']
                 all_coordinates.append([lat, lon])
-                image_url = google_integration.get_place_image_url(place_info['place_id'])
+                
+                # Fetch image URL and cache it to avoid duplicates
+                place_id = place_info['place_id']
+                if place_id not in image_cache:
+                    image_url = google_integration.get_place_image_url(place_id)
+                    image_cache[place_id] = image_url
+                else:
+                    image_url = image_cache[place_id]
+                
                 location_data.append({
                     "name": place_info['name'],
                     "address": place_info['address'],
@@ -203,7 +222,6 @@ class FoliumMapGenerator:
             "temple": ("fa-pagelines", "red"),
             "mountain": ("fa-mountain", "green"),
             "market": ("fa-store", "orange"),
-            "hotel": ("fa-hotel", "blue"),
             "beach": ("fa-umbrella-beach", "purple"),
             "general": ("fa-info-circle", "gray")
         }
@@ -260,23 +278,12 @@ class OllamaChatbot:
                         context += f"User: {entry['user']}\n"
                     if 'assistant' in entry:
                         context += f"Assistant: {entry['assistant']}\n"
-            
-            # Customize prompt based on user query
-            if "family" in query.lower():
-                additional_context = "Plan a family-friendly trip."
-            elif "alone" in query.lower():
-                additional_context = "Plan a solo trip."
-            elif "work" in query.lower():
-                additional_context = "Include places suitable for remote work."
-            else:
-                additional_context = "Plan a detailed trip itinerary."
-            
+
+            # Generate a travel plan using Ollama
             prompt = f"""
             You are a Thailand travel expert with comprehensive knowledge of all provinces, tourist attractions, local culture, transportation options, and seasonal activities in Thailand. You have access to real-time data about locations, weather conditions, and travel trends.
 
-            Your task is to plan a detailed and realistic trip itinerary based on the following:
-            - {query}: The specific request or destination provided by the user.
-            - {context}: Any additional preferences, interests, or constraints mentioned in the conversation (e.g., budget, duration, group type, preferred activities).
+            Your task is to plan a trip itinerary based on the user's request. If the user provides minimal information (e.g., just a province name), create a basic itinerary that includes popular and highly-rated attractions in that area. Suggest accommodations and provide useful travel tips.
 
             When creating the itinerary:
             1. Ensure accuracy: Only include verified locations, attractions, and activities that exist in Thailand.
@@ -285,7 +292,13 @@ class OllamaChatbot:
             4. Include practical details: Suggest accommodations (hotels, resorts, guesthouses) relevant to the traveler's preferences and provide useful travel tips (e.g., best time to visit, local customs).
             5. Adapt to seasons: Tailor recommendations based on the current or expected season (e.g., rainy season vs. dry season).
             6. Focus on popular and highly-rated attractions: Prioritize well-known tourist spots, cultural sites, natural landmarks, and activities that are widely recommended by travelers.
-            7. Format the response as follows:
+
+            If the user provides minimal information, such as "Create an itinerary for [Province]", create a basic 3-day itinerary that includes:
+            - Popular attractions in the province.
+            - Recommended accommodations.
+            - Useful travel tips for the area.
+
+            Format the response as follows:
             - Day 1: [Activity], [Location] ([Province]), [Time]
                 - Accommodation: [Hotel/Resort Name], [Location]
                 - Travel Tip: [Useful advice for the day]
@@ -295,6 +308,9 @@ class OllamaChatbot:
             ...
 
             If you lack sufficient information from the query or context, ask clarifying questions before providing the itinerary.
+
+            User Query: {query}
+            Conversation Context: {context}
             """
             result = subprocess.run(
                 ["ollama", "run", "llama3.1:latest", prompt],
@@ -318,25 +334,31 @@ class DestinationDetailsGenerator:
         """
         # Step 1: Retrieve Ollama's AI-generated travel plan
         ai_itinerary = OllamaChatbot.get_travel_plan(f"Plan a trip to {destination_name}", history)
+
         # Get current timestamp
         current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
         # Step 2: Get destination details from Google API
         dest_info = GoogleIntegration.get_place_by_name(destination_name)
         if not dest_info:
             return f"I couldn't find anything about {destination_name}. Maybe try a different place?"
+
         # Step 3: Parse locations from the itinerary using FoliumMapGenerator
         locations = FoliumMapGenerator.parse_itinerary_locations(ai_itinerary, destination_name)
+
         # Step 4: Generate Folium map with all locations in the itinerary
         google_integration = GoogleIntegration()
         folium_map_html, location_data = FoliumMapGenerator.generate_folium_map(locations, google_integration)
+
         # Step 5: Get main destination image
         main_image_url = GoogleIntegration.get_place_image_url(dest_info['place_id'])
+
         # Step 6: Get Hotel Booking Link
         hotel_booking_link = GoogleIntegration.get_hotel_booking_link(destination_name)
+
         # Step 7: Create location gallery HTML
         location_gallery_html = ""
         for loc in location_data:
-            # Exclude business-related locations
             if loc["type"] not in ["hotel", "general"] or "tour" not in loc["name"].lower():
                 if loc.get('image_url'):
                     location_gallery_html += f"""
@@ -350,6 +372,7 @@ class DestinationDetailsGenerator:
                         </div>
                     </div>
                     """
+
         # Prepare HTML response with place details under the image
         response = f"""
         <div class="destination-details-container">
@@ -493,36 +516,53 @@ def extract_text_from_html(html_content):
 # Function to generate PDF from conversation history
 def create_pdf_from_history(session_id, destination_name):
     """
-    Generate PDF file from the conversation history
+    Generate a beautifully formatted PDF file from the conversation history.
     """
     try:
         if session_id not in conversation_history:
             return None
+
         # PDF filename
         pdf_filename = f"{destination_name.replace(' ', '_')}_travel_plan.pdf"
-        # PDF path to save
         pdf_path = os.path.join('static', pdf_filename)
+
         # Create directory if it doesn't exist
         os.makedirs('static', exist_ok=True)
-        c = canvas.Canvas(pdf_path, pagesize=letter)
-        width, height = letter
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(72, height - 72, f"Travel Plan for {destination_name}")
-        c.setFont("Helvetica", 10)
-        c.drawString(72, height - 90, f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+
+        # Create PDF document
+        doc = SimpleDocTemplate(pdf_path, pagesize=letter,
+                                rightMargin=72, leftMargin=72,
+                                topMargin=72, bottomMargin=72)
+        styles = getSampleStyleSheet()
+        story = []
+
+        # Title and timestamp
+        title = Paragraph(f"Travel Plan for {destination_name}", styles['Title'])
+        story.append(title)
+        timestamp = Paragraph(f"Generated on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}", styles['Normal'])
+        story.append(timestamp)
+        story.append(Spacer(1, 12))
+
         # Extract text content for the PDF
         html_content = ""
         for message in conversation_history[session_id]:
             if 'assistant' in message:
                 html_content = message['assistant']
                 break
+
+        # Convert HTML to readable text
         text_content = extract_text_from_html(html_content)
-        text_object = c.beginText(72, height - 120)
-        text_object.setFont("Helvetica", 10)
-        text_object.setTextOrigin(72, height - 120)
-        text_object.textLines(text_content)
-        c.drawText(text_object)
-        c.save()
+
+        # Split text into paragraphs
+        paragraphs = text_content.split('\n')
+        for paragraph in paragraphs:
+            if paragraph.strip():
+                p = Paragraph(paragraph.strip(), styles['BodyText'])
+                story.append(p)
+                story.append(Spacer(1, 12))  # Add space between paragraphs
+
+        # Build PDF
+        doc.build(story)
         return pdf_path
     except Exception as e:
         logging.error(f"Error generating PDF: {e}")
@@ -537,12 +577,12 @@ def handle_message(data):
 
     if session_id not in conversation_history:
         conversation_history[session_id] = []
+
     # Store user message in conversation history
     conversation_history[session_id].append({'user': user_message})
 
     # Check if the user wants to save the conversation as a PDF
     if "save pdf" in user_message.lower():
-        # Assume the user is asking to save their travel plan as a PDF
         destination_name = "Thailand Trip"  # You can extract the destination name from the user's message if necessary
         pdf_path = create_pdf_from_history(session_id, destination_name)
         if pdf_path:
@@ -559,14 +599,16 @@ def handle_message(data):
         # If the message is not about saving as PDF, continue generating travel plan
         destination_name = user_message  # Assume user is asking about a destination
         generated_details = DestinationDetailsGenerator.generate_comprehensive_details(destination_name, conversation_history[session_id])
+
         # Store assistant response in conversation history
         conversation_history[session_id].append({'assistant': generated_details})
+
         # Send response with timestamp
         emit('receive_message', {
             'message': generated_details,
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
-        
+
 # PDF download route
 @app.route('/download_pdf/<session_id>/<destination_name>', methods=['GET'])
 def download_pdf(session_id, destination_name):
