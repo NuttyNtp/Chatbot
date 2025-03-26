@@ -9,6 +9,7 @@ beautifulsoup4==4.12.2
 flask-socketio
 faiss-cpu
 requests==2.31.0
-langchain-core==0.0.1  # Replace with the actual version you are using
-langchain-ollama==0.0.1  # Replace with the actual version you are using
-langchain-community==0.0.1  # Replace with the actual version you are using
+langchain
+langchain-ollama
+langchain-community
+wikipedia
