@@ -16,7 +16,6 @@ from folium.plugins import MarkerCluster
 import base64
 from io import BytesIO
 import re
-from datetime import datetime
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s: %(message)s')
@@ -39,16 +38,15 @@ class GoogleIntegration:
     @staticmethod
     def get_place_by_name(destination_name):
         """
-        Search for a place by name using Google Places API
-        It returns the place's name, address, latitude, longitude, and place_id.
+        Search for a place by name using Google Places API.
+        Returns the place's name, address, latitude, longitude, and place_id.
         """
-        # Use 'components' parameter to restrict results to Thailand
         url = f"https://maps.googleapis.com/maps/api/place/textsearch/json?query={destination_name}&components=country:TH&key={GOOGLE_MAPS_API_KEY}"
         response = requests.get(url)
         if response.status_code == 200:
             data = response.json()
             if 'results' in data and len(data['results']) > 0:
-                place = data['results'][0]  # Take the first result
+                place = data['results'][0]
                 return {
                     'name': place.get('name'),
                     'address': place.get('formatted_address', 'No address available'),
@@ -56,9 +54,6 @@ class GoogleIntegration:
                     'longitude': place['geometry']['location']['lng'],
                     'place_id': place['place_id']
                 }
-            else:
-                logging.warning(f"No results found for '{destination_name}'.")
-                return None
         logging.error("Google API request failed or no results found.")
         return None
 
@@ -79,18 +74,17 @@ class GoogleIntegration:
         return None
 
     @staticmethod
-    def get_hotel_booking_link(destination_name):
+    def get_hotel_booking_links(destination_name):
         """
-        Generate a hotel booking link for the destination.
-        It encodes the destination name into the URL for Booking.com.
-        The 'dest_id' parameter is used to restrict results to Thailand.
+        Generate hotel booking links for multiple platforms.
         """
-        # Encode destination name
         destination_encoded = urllib.parse.quote(destination_name)
-        # Use 'dest_id=293406' to specify Thailand as the search region
-        return f"https://www.booking.com/searchresults.html?ss={destination_encoded}&dest_id=293406&dest_type=country"
+        links = {
+            "Booking.com": f"https://www.booking.com/searchresults.html?ss={destination_encoded}&dest_id=293406&dest_type=country",
+        }
+        return links
 
-# Folium Map Integration 
+# Folium Map Integration
 class FoliumMapGenerator:
     @staticmethod
     def parse_itinerary_locations(itinerary_text, base_location_name):
@@ -98,11 +92,7 @@ class FoliumMapGenerator:
         Parse itinerary text to extract location names and activities.
         Returns a list of dictionaries with location details.
         """
-        locations = []
-        # Add the main destination as the first location
-        locations.append({"name": base_location_name, "is_base": True, "activity": f"Main Destination: {base_location_name}"})
-
-        # Define patterns to match different types of places
+        locations = [{"name": base_location_name, "is_base": True, "activity": f"Main Destination: {base_location_name}"}]
         place_patterns = {
             "temple": r"(?:วัด|temple)\s*([\w\s]+)",
             "mountain": r"(?:ภูเขา|mountain)\s*([\w\s]+)",
@@ -111,8 +101,6 @@ class FoliumMapGenerator:
             "beach": r"(?:ชายหาด|beach)\s*([\w\s]+)",
             "general": r"at\s+([\w\s]+)"
         }
-
-        # Extract locations from itinerary using regex
         day_pattern = r'Day \d+:.*?(?=Day \d+:|$)'
         day_matches = re.findall(day_pattern, itinerary_text, re.DOTALL)
         for day_match in day_matches:
@@ -133,7 +121,6 @@ class FoliumMapGenerator:
                         matched = True
                         break
                 if not matched:
-                    # If no specific type matches, try general extraction
                     general_match = re.search(place_patterns["general"], line, re.IGNORECASE)
                     if general_match:
                         location_name = general_match.group(1).strip()
@@ -144,8 +131,6 @@ class FoliumMapGenerator:
                                 "activity": line,
                                 "is_base": False
                             })
-
-        # Remove duplicates while preserving order
         unique_locations = []
         seen = set()
         for loc in locations:
@@ -165,7 +150,6 @@ class FoliumMapGenerator:
         location_data = []
         all_coordinates = []
 
-        # Fetch coordinates and images for each location
         for location in locations:
             place_info = google_integration.get_place_by_name(location["name"])
             if place_info:
@@ -183,7 +167,6 @@ class FoliumMapGenerator:
                     "type": location.get("type", "general")
                 })
 
-        # Calculate optimal route using Google Maps Directions API
         if len(all_coordinates) > 1:
             origin = f"{all_coordinates[0][0]},{all_coordinates[0][1]}"
             destination = f"{all_coordinates[-1][0]},{all_coordinates[-1][1]}"
@@ -203,11 +186,9 @@ class FoliumMapGenerator:
                         optimized_coordinates.append([start_loc["lat"], start_loc["lng"]])
                     all_coordinates = optimized_coordinates
 
-        # Create base map
         m = folium.Map(location=map_center, zoom_start=10, tiles="CartoDB positron")
         marker_cluster = MarkerCluster().add_to(m)
 
-        # Define icons for different location types
         icon_mapping = {
             "temple": ("fa-pagelines", "red"),
             "mountain": ("fa-mountain", "green"),
@@ -217,8 +198,8 @@ class FoliumMapGenerator:
             "general": ("fa-info-circle", "gray")
         }
 
-        # Add markers for each location
         for loc in location_data:
+            # กำหนดค่า popup_html
             popup_html = f"""
             <div style="width:250px">
                 <h4>{loc['name']}</h4>
@@ -227,9 +208,12 @@ class FoliumMapGenerator:
                 {f'<img src="{loc["image_url"]}" style="width:100%;max-height:150px;object-fit:cover">' if loc.get('image_url') else ''}
             </div>
             """
-            icon_type = loc.get("type", "general")
-            icon_details = icon_mapping.get(icon_type, icon_mapping["general"])
+
+            # กำหนดค่า icon
+            icon_details = icon_mapping.get(loc.get("type", "general"), icon_mapping["general"])
             icon = folium.Icon(color=icon_details[1], icon=icon_details[0], prefix="fa")
+
+            # สร้าง Marker
             folium.Marker(
                 location=[loc['lat'], loc['lon']],
                 popup=folium.Popup(popup_html, max_width=300),
@@ -237,7 +221,6 @@ class FoliumMapGenerator:
                 icon=icon
             ).add_to(marker_cluster)
 
-        # Draw lines between locations
         if len(all_coordinates) > 1:
             folium.PolyLine(
                 locations=all_coordinates,
@@ -259,29 +242,43 @@ class OllamaChatbot:
         Now includes conversation history for context.
         """
         try:
-            # Build the conversation context from history
             context = ""
             if history and len(history) > 0:
-                for entry in history[-5:]:  # Only use the last 5 exchanges to keep prompt size reasonable
+                for entry in history[-5:]:
                     if 'user' in entry:
                         context += f"User: {entry['user']}\n"
                     if 'assistant' in entry:
                         context += f"Assistant: {entry['assistant']}\n"
+
             prompt = f"""
-            You are a Thailand travel expert. 
-            {context}
-            Plan a detailed trip itinerary for: {query}.
-            Consider the previous conversation context when responding.
-            Please format the answer like this:
-            - Day 1: Activity, Location, Time
-            - Day 2: Activity, Location, Time
-            - Include hotel recommendations and travel tips.
+            You are a Thailand travel expert with comprehensive knowledge of all provinces, tourist attractions, local culture, transportation options, and seasonal activities in Thailand. You have access to real-time data about locations, weather conditions, and travel trends.
+
+            Your task is to plan a detailed and realistic trip itinerary based on the following:
+            - {query}: The specific request or destination provided by the user.
+            - {context}: Any additional preferences, interests, or constraints mentioned in the conversation (e.g., budget, duration, group type, preferred activities).
+
+            When creating the itinerary:
+            1. Ensure accuracy: Only include verified locations, attractions, and activities that exist in Thailand.
+            2. Be province-specific: Clearly mention the province where each activity takes place.
+            3. Consider logistics: Plan transportation between destinations realistically (e.g., driving times, flight availability).
+            4. Include practical details: Suggest accommodations (hotels, resorts, guesthouses) relevant to the traveler's preferences and provide useful travel tips (e.g., best time to visit, local customs).
+            5. Adapt to seasons: Tailor recommendations based on the current or expected season (e.g., rainy season vs. dry season).
+            6. Format the response as follows:
+            - Day 1: [Activity], [Location] ([Province]), [Time]
+                - Accommodation: [Hotel/Resort Name], [Location]
+                - Travel Tip: [Useful advice for the day]
+            - Day 2: [Activity], [Location] ([Province]), [Time]
+                - Accommodation: [Hotel/Resort Name], [Location]
+                - Travel Tip: [Useful advice for the day]
+            ...
+
+            If you lack sufficient information from the query or context, ask clarifying questions before providing the itinerary.
             """
             result = subprocess.run(
                 ["ollama", "run", "llama3.1:latest", prompt],
                 capture_output=True,
                 text=True,
-                encoding='utf-8'  # Specify UTF-8 encoding explicitly
+                encoding='utf-8'
             )
             return result.stdout.strip()
         except Exception as e:
@@ -297,32 +294,17 @@ class DestinationDetailsGenerator:
         Folium map embed, place images, and hotel booking link.
         This combines information from Ollama and Google APIs.
         """
-        # Step 1: Retrieve Ollama's AI-generated travel plan
         ai_itinerary = OllamaChatbot.get_travel_plan(f"Plan a trip to {destination_name}", history)
-
-        # Get current timestamp
-        current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Step 2: Get destination details from Google API
         dest_info = GoogleIntegration.get_place_by_name(destination_name)
         if not dest_info:
             return f"I couldn't find anything about {destination_name}. Maybe try a different place?"
-        
-        # Step 3: Parse locations from the itinerary using FoliumMapGenerator
+
         locations = FoliumMapGenerator.parse_itinerary_locations(ai_itinerary, destination_name)
-        
-        # Step 4: Generate Folium map with all locations in the itinerary
         google_integration = GoogleIntegration()
         folium_map_html, location_data = FoliumMapGenerator.generate_folium_map(locations, google_integration)
-        
-        # Step 5: Get main destination image
         main_image_url = GoogleIntegration.get_place_image_url(dest_info['place_id'])
-        
-        # Step 6: Get Hotel Booking Link
-        hotel_booking_link = GoogleIntegration.get_hotel_booking_link(destination_name
-        )
-        
-        # Step 7: Create location gallery HTML
+        hotel_booking_links = GoogleIntegration.get_hotel_booking_links(destination_name)
+
         location_gallery_html = ""
         for loc in location_data:
             if loc.get('image_url'):
@@ -337,8 +319,7 @@ class DestinationDetailsGenerator:
                     </div>
                 </div>
                 """
-                
-        # Prepare HTML response with place details under the image
+
         response = f"""
         <div class="destination-details-container">
             <h2>Excited to Explore {dest_info['name']}? Here's Your Travel Itinerary!</h2>
@@ -350,7 +331,7 @@ class DestinationDetailsGenerator:
                         <p><strong>Address:</strong> {dest_info['address']}</p>
                         <p><strong>Coordinates:</strong> {dest_info['latitude']}, {dest_info['longitude']}</p>
                         <!-- Add Find Hotel Button -->
-                        <a href="{hotel_booking_link}" target="_blank" class="book-button">Find Hotel in {destination_name}!</a>
+                        <a href="{hotel_booking_links['Booking.com']}" target="_blank" class="book-button">Find Hotel in {destination_name}!</a>
                     </div>
                 </div>
             </div>
@@ -408,10 +389,10 @@ class DestinationDetailsGenerator:
                     margin-bottom: 30px;
                 }}
                 .formatted-itinerary {{
-                    white-space: pre-wrap; /* Allow wrapping of long lines */
-                    word-break: break-word; /* Break long words if necessary */
-                    max-width: 100%; /* Ensure it doesn't overflow */
-                    font-size: 14px; /* Adjust font size for better readability */
+                    white-space: pre-wrap;
+                    word-break: break-word;
+                    max-width: 100%;
+                    font-size: 14px;
                 }}
                 .map-container {{
                     height: 500px;
@@ -452,9 +433,9 @@ class DestinationDetailsGenerator:
                     color: #666;
                 }}
                 .timestamp {{
-                font-size: 14px;
-                color: #666;
-                margin-bottom: 20px;
+                    font-size: 14px;
+                    color: #666;
+                    margin-bottom: 20px;
                 }}
             </style>
         </div>
@@ -464,46 +445,44 @@ class DestinationDetailsGenerator:
 # Extract text content from HTML for PDF
 def extract_text_from_html(html_content):
     """
-    Extract readable text content from HTML for PDF generation
+    Extract readable text content from HTML for PDF generation.
     """
     try:
         soup = BeautifulSoup(html_content, 'html.parser')
-        # Extract the itinerary section specifically
         itinerary_section = soup.select_one('.itinerary-section pre')
         if itinerary_section:
             return itinerary_section.get_text()
-        # If no specific section found, try to get all text
         return soup.get_text(separator='\n', strip=True)
     except Exception as e:
         logging.error(f"Error extracting text from HTML: {e}")
-        return html_content  # Return original content if parsing fails
+        return html_content
 
 # Function to generate PDF from conversation history
 def create_pdf_from_history(session_id, destination_name):
     """
-    Generate PDF file from the conversation history
+    Generate PDF file from the conversation history.
     """
     try:
         if session_id not in conversation_history:
             return None
-        # PDF filename
+
         pdf_filename = f"{destination_name.replace(' ', '_')}_travel_plan.pdf"
-        # PDF path to save
         pdf_path = os.path.join('static', pdf_filename)
-        # Create directory if it doesn't exist
         os.makedirs('static', exist_ok=True)
+
         c = canvas.Canvas(pdf_path, pagesize=letter)
         width, height = letter
         c.setFont("Helvetica-Bold", 16)
         c.drawString(72, height - 72, f"Travel Plan for {destination_name}")
         c.setFont("Helvetica", 10)
         c.drawString(72, height - 90, f"Generated on: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-        # Extract text content for the PDF
+
         html_content = ""
         for message in conversation_history[session_id]:
             if 'assistant' in message:
                 html_content = message['assistant']
                 break
+
         text_content = extract_text_from_html(html_content)
         text_object = c.beginText(72, height - 120)
         text_object.setFont("Helvetica", 10)
@@ -525,36 +504,31 @@ def handle_message(data):
 
     if session_id not in conversation_history:
         conversation_history[session_id] = []
-    # Store user message in conversation history
+
     conversation_history[session_id].append({'user': user_message})
 
-    # Check if the user wants to save the conversation as a PDF
     if "save pdf" in user_message.lower():
-        # Assume the user is asking to save their travel plan as a PDF
-        destination_name = "Thailand Trip"  # You can extract the destination name from the user's message if necessary
+        destination_name = "Thailand Trip"
         pdf_path = create_pdf_from_history(session_id, destination_name)
         if pdf_path:
             emit('receive_message', {
                 'message': f"Your travel plan PDF has been generated: {pdf_path}",
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                'timestamp': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
         else:
             emit('receive_message', {
                 'message': "Sorry, there was an issue generating the PDF.",
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                'timestamp': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             })
     else:
-        # If the message is not about saving as PDF, continue generating travel plan
-        destination_name = user_message  # Assume user is asking about a destination
+        destination_name = user_message
         generated_details = DestinationDetailsGenerator.generate_comprehensive_details(destination_name, conversation_history[session_id])
-        # Store assistant response in conversation history
         conversation_history[session_id].append({'assistant': generated_details})
-        # Send response with timestamp
         emit('receive_message', {
             'message': generated_details,
-            'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            'timestamp': datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
-        
+
 # PDF download route
 @app.route('/download_pdf/<session_id>/<destination_name>', methods=['GET'])
 def download_pdf(session_id, destination_name):
@@ -567,16 +541,10 @@ def download_pdf(session_id, destination_name):
 # Flask Routes
 @app.route('/')
 def main():
-    """
-    Route to display the home page.
-    """
     return render_template('home.html')
 
 @app.route('/index')
 def chat_page():
-    """
-    Route to display the chat page where users can interact with the chatbot.
-    """
     return render_template('index.html')
 
 if __name__ == '__main__':
