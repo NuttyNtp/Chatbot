@@ -118,7 +118,7 @@
             background-image: url('https://ui-avatars.com/api/?name=You&background=92D6E3&color=fff');
         }
         .bot-avatar {
-            background-image: url('https://ui-avatars.com/api/?name=Guide&background=FF6B6B&color=fff');
+            background-image: url('https://ui-avatars.com/api/?name=BOT&background=FF6B6B&color=fff');
         }
         .user-message, .bot-message {
             padding: 16px 20px;
@@ -350,13 +350,19 @@
         const inputField = document.getElementById('query-input');
         switch(option) {
             case 'Plan':
-                inputField.value = "Plan a trip to ?";
+                inputField.value = "Plan a trip to";
+                break;
+            case 'itinerary':
+                inputField.value = "Create an itinerary for Bangkok province";
                 break;
             case 'hotel':
                 inputField.value = "Give me a booking link of hotel";
                 break;
             case 'transportation':
                 inputField.value = "What are the transportation options in Thailand?";
+                break;
+            case 'fight':
+                inputField.value = "Give me a booking link of flight";
                 break;
             case 'activities':
                 inputField.value = "What activities can I do in Thailand?";
@@ -559,8 +565,10 @@
         
         <div class="category-header">Essential Services</div>
         <button onclick="selectOption('Plan')">📍 Ask a plan</button>
+        <button onclick="selectOption('itinerary')">📍 Creat an itinerary for Bangkok province</button>
         <button onclick="selectOption('hotel')">🏨 Booking Hotel Link</button>
         <button onclick="selectOption('transportation')">🚕 Transportation Options</button>
+        <button onclick="selectOption('fight')">✈️ Booking Flight Link</button>
         
         <div class="category-header">Experiences</div>
         <button onclick="selectOption('activities')">🎭 Activities & Adventures</button>
@@ -581,13 +589,6 @@
                 <button id="stop-response-button" class="stop-button">Stop</button>
             </div>
         </div>
-        
-        <!-- <div class="quick-actions">
-            <button class="quick-action-button" onclick="quickAction('bangkok')">Bangkok Highlights</button>
-            <button class="quick-action-button" onclick="quickAction('phuket')">Discover Phuket</button>
-            <button class="quick-action-button" onclick="quickAction('chiangmai')">Chiang Mai Experiences</button>
-        </div> -->
-        
         <form id="chat-form" method="POST" action="/">
             <div class="input-container">
                 <input type="text" 
