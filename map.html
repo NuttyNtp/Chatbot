@@ -1,0 +1,146 @@
+<div style="width:100%;"><div style="position:relative;width:100%;height:0;padding-bottom:60%;"><span style="color:#565656">Make this Notebook Trusted to load map: File -> Trust Notebook</span><iframe srcdoc="&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+    
+    &lt;meta http-equiv=&quot;content-type&quot; content=&quot;text/html; charset=UTF-8&quot; /&gt;
+    
+        &lt;script&gt;
+            L_NO_TOUCH = false;
+            L_DISABLE_3D = false;
+        &lt;/script&gt;
+    
+    &lt;style&gt;html, body {width: 100%;height: 100%;margin: 0;padding: 0;}&lt;/style&gt;
+    &lt;style&gt;#map {position:absolute;top:0;bottom:0;right:0;left:0;}&lt;/style&gt;
+    &lt;script src=&quot;https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;https://code.jquery.com/jquery-3.7.1.min.js&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js&quot;&gt;&lt;/script&gt;
+    &lt;script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js&quot;&gt;&lt;/script&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css&quot;/&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css&quot;/&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css&quot;/&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css&quot;/&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css&quot;/&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css&quot;/&gt;
+    
+            &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no&quot; /&gt;
+            &lt;style&gt;
+                #map_57a86b329c7b3c9128594ceae0eb57bc {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            &lt;/style&gt;
+        
+    &lt;script src=&quot;https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/leaflet.markercluster.js&quot;&gt;&lt;/script&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/MarkerCluster.css&quot;/&gt;
+    &lt;link rel=&quot;stylesheet&quot; href=&quot;https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.1.0/MarkerCluster.Default.css&quot;/&gt;
+&lt;/head&gt;
+&lt;body&gt;
+    
+    
+            &lt;div class=&quot;folium-map&quot; id=&quot;map_57a86b329c7b3c9128594ceae0eb57bc&quot; &gt;&lt;/div&gt;
+        
+&lt;/body&gt;
+&lt;script&gt;
+    
+    
+            var map_57a86b329c7b3c9128594ceae0eb57bc = L.map(
+                &quot;map_57a86b329c7b3c9128594ceae0eb57bc&quot;,
+                {
+                    center: [13.7563, 100.5018],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  &quot;zoom&quot;: 10,
+  &quot;zoomControl&quot;: true,
+  &quot;preferCanvas&quot;: false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_f7d9773c1ea4679666aabdbf0a3a8c56 = L.tileLayer(
+                &quot;https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png&quot;,
+                {
+  &quot;minZoom&quot;: 0,
+  &quot;maxZoom&quot;: 20,
+  &quot;maxNativeZoom&quot;: 20,
+  &quot;noWrap&quot;: false,
+  &quot;attribution&quot;: &quot;\u0026copy; \u003ca href=\&quot;https://www.openstreetmap.org/copyright\&quot;\u003eOpenStreetMap\u003c/a\u003e contributors \u0026copy; \u003ca href=\&quot;https://carto.com/attributions\&quot;\u003eCARTO\u003c/a\u003e&quot;,
+  &quot;subdomains&quot;: &quot;abcd&quot;,
+  &quot;detectRetina&quot;: false,
+  &quot;tms&quot;: false,
+  &quot;opacity&quot;: 1,
+}
+
+            );
+        
+    
+            tile_layer_f7d9773c1ea4679666aabdbf0a3a8c56.addTo(map_57a86b329c7b3c9128594ceae0eb57bc);
+        
+    
+            var marker_cluster_73874a306a171781a0c426b5f1fecfd4 = L.markerClusterGroup(
+                {
+}
+            );
+        
+    
+            var marker_b74eafca383c3c0f5ea6d1ab6ea842bc = L.marker(
+                [8.0854803, 98.9062856],
+                {
+}
+            ).addTo(marker_cluster_73874a306a171781a0c426b5f1fecfd4);
+        
+    
+            var icon_fa5f8905b580b5544c27a7dfbc8e94ad = L.AwesomeMarkers.icon(
+                {
+  &quot;markerColor&quot;: &quot;gray&quot;,
+  &quot;iconColor&quot;: &quot;white&quot;,
+  &quot;icon&quot;: &quot;fa-info-circle&quot;,
+  &quot;prefix&quot;: &quot;fa&quot;,
+  &quot;extraClasses&quot;: &quot;fa-rotate-0&quot;,
+}
+            );
+        
+    
+        var popup_87302b94463c3de6ba2cf5cda5e684bd = L.popup({
+  &quot;maxWidth&quot;: 300,
+});
+
+        
+            
+                var html_8e9ed1727bef65643bcdb8f3c06a1858 = $(`&lt;div id=&quot;html_8e9ed1727bef65643bcdb8f3c06a1858&quot; style=&quot;width: 100.0%; height: 100.0%;&quot;&gt;                 &lt;div style=&quot;width:250px&quot;&gt;                     &lt;h4&gt;Krabi&lt;/h4&gt;                     &lt;p&gt;Krabi, Pak Nam, Mueang Krabi District, Krabi 81000, Thailand&lt;/p&gt;                     &lt;p&gt;&lt;strong&gt;Activity:&lt;/strong&gt; Main Destination: Krabi&lt;/p&gt;                     &lt;img src=&quot;https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&amp;photoreference=AUy1YQ1czJPVjqwm0OFrHQ7KeCrBVARxpi8Umo8AHKt9DJI3RxuJJ-udR7-bhjQdUPR9-sRxMvwjeM6mK-aYXDgtsvjv8xpVAyGkQmRF4aYDHyLFpUQcV8h57oOKTeboKKiq0SZlhDJ6suxhkp-NOac21vZ-Dt4JcQrf-FkkPTMCmyiRNCSvH3eb-b1sr0YN1B1THYPfePn63vZIWOV5-5wIpYSKiiv2vabSx4Jqd0JVL4q-yuhq8VQ6fGK7yQuxfEYK3w65E6OOjFeKpma2k6I4jLhUkKFv6Gk0SKtDcgcnKdiDe4x_4hdoHuKCFsdhMOJaHGA8JRaw-WaY_1cDYffQBzW6T3yMV62GLXS8zedYqM9G1XVTAtubJZfxLusG0VVV4o68hy-oePsY_vLBKnfA8Ac_OszBC7bnga-OtAvnMM6m22PKV7JkKegl7H6nDpyqaYDzXQrAbQnWkhfFi-ORkELOKHhyNl4DdLAXEm_j8rp0uwTA8IWGMu_DjhiI_mdpP0I_pINLCfZTr2kw9tUozELlaev-sbXgj8msRX99TW60Ch9EkY2KiIbsIIawaYMjh2QE5es6jtBvbde7btcWnv6xTrU2ZB3v1npU7CqadyelCwVmtg0xdCSrkziLCGV5LbyYkw&amp;key=AIzaSyDv_OEg50nhbpvW-EtNy3ze-dqsG4tPEEI&quot; style=&quot;width:100%;max-height:150px;object-fit:cover&quot;&gt;                 &lt;/div&gt;                 &lt;/div&gt;`)[0];
+                popup_87302b94463c3de6ba2cf5cda5e684bd.setContent(html_8e9ed1727bef65643bcdb8f3c06a1858);
+            
+        
+
+        marker_b74eafca383c3c0f5ea6d1ab6ea842bc.bindPopup(popup_87302b94463c3de6ba2cf5cda5e684bd)
+        ;
+
+        
+    
+    
+            marker_b74eafca383c3c0f5ea6d1ab6ea842bc.bindTooltip(
+                `&lt;div&gt;
+                     Krabi
+                 &lt;/div&gt;`,
+                {
+  &quot;sticky&quot;: true,
+}
+            );
+        
+    
+                marker_b74eafca383c3c0f5ea6d1ab6ea842bc.setIcon(icon_fa5f8905b580b5544c27a7dfbc8e94ad);
+            
+    
+            marker_cluster_73874a306a171781a0c426b5f1fecfd4.addTo(map_57a86b329c7b3c9128594ceae0eb57bc);
+        
+&lt;/script&gt;
+&lt;/html&gt;" style="position:absolute;width:100%;height:100%;left:0;top:0;border:none !important;" allowfullscreen webkitallowfullscreen mozallowfullscreen></iframe></div></div>
