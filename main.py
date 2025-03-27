@@ -170,8 +170,6 @@ def validate_user_question(user_question):
 
     return True, None
 
-# SocketIO message handling
-@socketio.on('send_message')
 def handle_message(data):
     user_message = data['message']
     session_id = request.sid
@@ -187,7 +185,6 @@ def handle_message(data):
         # เงื่อนไขที่ 1: หากผู้ใช้ถามเกี่ยวกับแผนการเดินทาง
         is_travel_related, validation_error = validate_user_question(user_message)
         if is_travel_related:
-            # ส่งข้อความไปยัง test.py เพื่อสร้างแผนการเดินทาง
             response = process_user_question(user_message)
             response = f"""
             <div class="destination-details-container">
@@ -199,6 +196,9 @@ def handle_message(data):
                 </div>
             </div>
             """
+        elif validation_error:
+            # ส่งข้อความแสดงข้อผิดพลาดกลับไปยังผู้ใช้
+            response = validation_error
 
         # เงื่อนไขที่ 2: หากผู้ใช้พูดถึงการขอดูรูปภาพสถานที่
         elif "show image" in user_message.lower() or "picture of" in user_message.lower():
@@ -219,7 +219,43 @@ def handle_message(data):
             else:
                 response = f"Sorry, I couldn't find any information about {place_name}."
 
-        # เงื่อนไขที่ 3: หากผู้ใช้ถามคำถามทั่วไปเกี่ยวกับประเทศไทย
+        # เงื่อนไขที่ 3: หากผู้ใช้ขอให้สร้างไฟล์ PDF
+        elif "Save PDF for my travel plan" in user_message.lower() or "Create PDF" in user_message.lower() or "Save PDF" in user_message.lower():
+            destination_name = "Travel Plan"  # คุณสามารถปรับให้ดึงชื่อจังหวัดจากข้อความได้
+            pdf_path = create_pdf_from_history(session_id, destination_name)
+            if pdf_path:
+                response = f"""
+                <div class="pdf-download-container">
+                    <p>Your travel plan has been saved as a PDF. You can download it using the link below:</p>
+                    <a href="/static/{os.path.basename(pdf_path)}" target="_blank" style="color: #007BFF; text-decoration: none;">Download PDF</a>
+                </div>
+                """
+            else:
+                response = "Sorry, I couldn't generate the PDF at the moment."
+
+        # เงื่อนไขที่ 4: หากผู้ใช้ขอลิงก์จองตั๋วเครื่องบิน
+        elif "book flight" in user_message.lower() or "flight link" in user_message.lower() or "Give me a booking link of flight" in user_message.lower():
+            response = """
+            <div class="flight-booking-container">
+                <p>You can book your flight using the following trusted platforms:</p>
+                <ul>
+                    <li><a href="https://www.skyscanner.com" target="_blank" style="color: #007BFF; text-decoration: none;">Skyscanner</a></li>
+                    <li><a href="https://www.kayak.com" target="_blank" style="color: #007BFF; text-decoration: none;">Kayak</a></li>
+                    <li><a href="https://www.expedia.com" target="_blank" style="color: #007BFF; text-decoration: none;">Expedia</a></li>
+                </ul>
+            </div>
+            """
+        # เงื่อนไขที่ 5: หากผู้ใช้ขอลิงก์จองตั๋วรถไฟ
+        elif "local train" in user_message.lower() or "local train link" in user_message.lower() or "give me a booking link of local train" in user_message.lower():
+            response = """
+            <div class="train-booking-container">
+                <p>You can book your train tickets using the following trusted platform:</p>
+                <ul>
+                    <li><a href="https://www.dticket.railway.co.th" target="_blank" style="color: #007BFF; text-decoration: none;">D-Ticket (State Railway of Thailand)</a></li>
+                </ul>
+            </div>
+            """
+        # เงื่อนไขที่ 6: หากผู้ใช้ถามคำถามทั่วไปเกี่ยวกับประเทศไทย
         else:
             prompt = f"""
             You are a Thailand Assistant with extensive knowledge about Thailand's culture, history, geography, and general information. 

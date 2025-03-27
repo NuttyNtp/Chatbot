@@ -142,8 +142,12 @@ class ItineraryGenerator:
     def __init__(self):
         self.model = OllamaLLM(model="llama3.1")
         self.prompt_template = ChatPromptTemplate.from_template(
-            """Question: {question}\n\nAnswer: Let's think step by step."""
+        """Question: {question}\n\nAnswer: Create a {num_days} day itinerary for {province_name}, with a focus on popular and well-known tourist attractions. Make sure to use correct spelling of the places so that they can be easily located on Google Maps. Include the main highlights of each attraction and any additional helpful information like location, hours of operation, and nearby amenities.
+
+        Alternatively, if the question is in the form of planning a trip or creating an itinerary, ensure that the number of days and the province are clearly mentioned and provide a detailed itinerary based on popular attractions."""
         )
+
+
 
     def generate_itinerary(self, province_name, attractions):
         """
