@@ -24,7 +24,6 @@ from test import process_user_question  # Import the function from test.py
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
-
 # Create Flask app
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
@@ -184,76 +183,67 @@ def handle_message(data):
     # Store user message in conversation history
     conversation_history[session_id].append({'user': user_message})
 
-    # Check if the user wants to save the conversation as a PDF
-    if "save pdf" in user_message.lower():
-        destination_name = "Thailand Trip"  # You can extract the destination name from the user's message if necessary
-        pdf_path = create_pdf_from_history(session_id, destination_name)
-        if pdf_path:
-            emit('receive_message', {
-                'message': f"Your travel plan PDF has been generated: {pdf_path}",
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            })
-        else:
-            emit('receive_message', {
-                'message': "Sorry, there was an issue generating the PDF.",
-                'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            })
-        return  # Exit early since the PDF request has been handled
-
     try:
-        # Check if the message contains a place name
-        place_info = GoogleIntegration.get_place_by_name(user_message)
-        if place_info:
-            place_image_url = GoogleIntegration.get_place_image_url(place_info['place_id'])
+        # เงื่อนไขที่ 1: หากผู้ใช้ถามเกี่ยวกับแผนการเดินทาง
+        is_travel_related, validation_error = validate_user_question(user_message)
+        if is_travel_related:
+            # ส่งข้อความไปยัง test.py เพื่อสร้างแผนการเดินทาง
+            response = process_user_question(user_message)
             response = f"""
             <div class="destination-details-container">
-                <div class="destination-overview">
-                    <h3>{place_info['name']}</h3>
-                    <p><strong>Address:</strong> {place_info['address']}</p>
-                    <p><strong>Coordinates:</strong> {place_info['latitude']}, {place_info['longitude']}</p>
-                    {f'<img src="{place_image_url}" alt="{place_info["name"]} Image" style="max-width: 100%; border-radius: 8px; margin-top: 10px;" />' if place_image_url else ''}
+                <div class="itinerary-section">
+                    <h3>Your Travel Plan</h3>
+                    <pre class="formatted-itinerary" style="white-space: pre-wrap; word-break: break-word; max-width: 100%; overflow-wrap: break-word; font-size: 14px; padding: 10px; background-color: #f9f9f9; border-radius: 8px;">
+                        {response}
+                    </pre>
                 </div>
             </div>
             """
-        else:
-            # Check if the message is related to travel planning
-            is_travel_related, _ = validate_user_question(user_message)
-            if is_travel_related:
-                response = process_user_question(user_message)
-                # Format the response with the provided CSS styles
+
+        # เงื่อนไขที่ 2: หากผู้ใช้พูดถึงการขอดูรูปภาพสถานที่
+        elif "show image" in user_message.lower() or "picture of" in user_message.lower():
+            place_name = user_message.split("of")[-1].strip()  # ดึงชื่อสถานที่จากข้อความ
+            place_info = GoogleIntegration.get_place_by_name(place_name)
+            if place_info:
+                place_image_url = GoogleIntegration.get_place_image_url(place_info['place_id'])
                 response = f"""
                 <div class="destination-details-container">
-                    <div class="itinerary-section">
-                        <h3>Your Travel Plan</h3>
-                        <pre class="formatted-itinerary" style="white-space: pre-wrap; word-break: break-word; max-width: 100%; overflow-wrap: break-word; font-size: 14px; padding: 10px; background-color: #f9f9f9; border-radius: 8px;">
-                            {response}
-                        </pre>
+                    <div class="destination-overview">
+                        <h3>{place_info['name']}</h3>
+                        <p><strong>Address:</strong> {place_info['address']}</p>
+                        <p><strong>Coordinates:</strong> {place_info['latitude']}, {place_info['longitude']}</p>
+                        {f'<img src="{place_image_url}" alt="{place_info["name"]} Image" style="max-width: 100%; border-radius: 8px; margin-top: 10px;" />' if place_image_url else '<p>No image available.</p>'}
                     </div>
                 </div>
                 """
             else:
-                # Call llama3.1 for non-travel-related questions
-                prompt = f"""
-                You are a Thailand Assistant with extensive knowledge about Thailand's culture, history, geography, and general information. 
-                Please provide a clear, concise, and well-structured response to the user's question in no more than 3 lines for quick understanding.
+                response = f"Sorry, I couldn't find any information about {place_name}."
 
-                User: {user_message}
-                Assistant:
-                """
-                result = subprocess.run(
-                    ["ollama", "run", "llama3.1:latest", prompt],
-                    capture_output=True,
-                    text=True,
-                    encoding='utf-8'
-                )
-                response = result.stdout.strip()
+        # เงื่อนไขที่ 3: หากผู้ใช้ถามคำถามทั่วไปเกี่ยวกับประเทศไทย
+        else:
+            prompt = f"""
+            You are a Thailand Assistant with extensive knowledge about Thailand's culture, history, geography, and general information. 
+            Please provide a clear, concise, and well-structured response to the user's question in no more than 3 lines for quick understanding.
 
+            User: {user_message}
+            Assistant:
+            """
+            result = subprocess.run(
+                ["ollama", "run", "llama3.1:latest", prompt],
+                capture_output=True,
+                text=True,
+                encoding='utf-8'
+            )
+            response = result.stdout.strip()
+
+        # ส่งข้อความกลับไปยัง UI
         logging.info(f"Response: {response}")
         conversation_history[session_id].append({'assistant': response})
         emit('receive_message', {
             'message': response,
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
+
     except Exception as e:
         logging.error(f"Error processing message: {e}")
         emit('receive_message', {

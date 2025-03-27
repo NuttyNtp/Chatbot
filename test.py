@@ -23,17 +23,15 @@ class GoogleIntegration:
         """
         Search for a place by name using Google Places API.
         """
-        if destination_name in GoogleIntegration.queried_places:
-            logging.info(f"Skipping {destination_name}, already processed.")
-            return None
-
         url = f"https://maps.googleapis.com/maps/api/place/textsearch/json?query={destination_name}&components=country:TH&key={GOOGLE_MAPS_API_KEY}"
+        logging.info(f"Querying Google Places API with: {destination_name}")
         response = requests.get(url)
         if response.status_code == 200:
             data = response.json()
+            logging.info(f"Google API Response: {data}")
             if 'results' in data and len(data['results']) > 0:
                 place = data['results'][0]
-                GoogleIntegration.queried_places.add(destination_name)
+                logging.info(f"Place found: {place}")
                 return {
                     'name': place.get('name'),
                     'address': place.get('formatted_address', 'No address available'),
@@ -44,7 +42,7 @@ class GoogleIntegration:
             else:
                 logging.warning(f"No results found for '{destination_name}'.")
                 return None
-        logging.error("Google API request failed or no results found.")
+        logging.error(f"Google API request failed with status code {response.status_code}.")
         return None
 
     @staticmethod
@@ -53,12 +51,16 @@ class GoogleIntegration:
         Fetch an image URL from Google Places API using the place_id.
         """
         url = f"https://maps.googleapis.com/maps/api/place/details/json?placeid={place_id}&key={GOOGLE_MAPS_API_KEY}"
+        logging.info(f"Fetching image for place_id: {place_id}")
         response = requests.get(url)
         if response.status_code == 200:
             data = response.json()
+            logging.info(f"Google API Response for place_id {place_id}: {data}")
             if 'result' in data and 'photos' in data['result']:
                 photo_reference = data['result']['photos'][0]['photo_reference']
-                return f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference={photo_reference}&key={GOOGLE_MAPS_API_KEY}"
+                image_url = f"https://maps.googleapis.com/maps/api/place/photo?maxwidth=800&photoreference={photo_reference}&key={GOOGLE_MAPS_API_KEY}"
+                logging.info(f"Image URL: {image_url}")
+                return image_url
         logging.error("Failed to fetch place image.")
         return None
 
@@ -110,8 +112,30 @@ class WikipediaIntegration:
         """
         Fetch tourist attractions from Wikipedia for a given province.
         """
-        query = f"Tourist attractions in {province_name} province"
-        return self.wikipedia.run(query)
+        queries = [
+            f"Tourist attractions in {province_name} province, Thailand",
+            f"{province_name} province attractions",
+            f"Things to do in {province_name} province"
+        ]
+        relevant_attractions = []
+        for query in queries:
+            logging.info(f"Querying Wikipedia with: {query}")
+            attractions = self.wikipedia.run(query)
+            logging.info(f"Attractions found: {attractions}")
+
+            # กรองข้อมูลที่เกี่ยวข้องกับจังหวัดที่ระบุ
+            for attraction in attractions.split("\n"):
+                if province_name.lower() in attraction.lower():
+                    relevant_attractions.append(attraction)
+
+            if relevant_attractions:
+                break  # หากพบข้อมูลที่เกี่ยวข้อง ให้หยุดการค้นหา
+
+        if not relevant_attractions:
+            logging.warning(f"No relevant attractions found for {province_name}.")
+            return []
+
+        return relevant_attractions
 
 # Itinerary Generator Class
 class ItineraryGenerator:
@@ -125,8 +149,22 @@ class ItineraryGenerator:
         """
         Generate a travel itinerary using the model.
         """
-        question = f"Create a travel itinerary for {province_name} province based on these tourist attractions: {attractions}."
-        return self.model.invoke(f"Question: {question}\nAnswer: Let's think step by step.")
+        # กรองสถานที่ให้มีเฉพาะในประเทศไทย
+        filtered_attractions = [
+            attraction for attraction in attractions if "Thailand" in attraction
+        ]
+        if not filtered_attractions:
+            logging.warning(f"No valid attractions found in Thailand for {province_name}.")
+            return f"ไม่มีข้อมูลสถานที่ท่องเที่ยวในประเทศไทยสำหรับจังหวัด {province_name}."
+
+        # สร้างคำถามสำหรับโมเดล
+        question = f"Create a travel itinerary for {province_name} province based on these tourist attractions in Thailand: {filtered_attractions}."
+        logging.info(f"Generated question for Llama: {question}")
+
+        # เรียกใช้โมเดล Llama เพื่อสร้างแผนการเดินทาง
+        response = self.model.invoke(f"Question: {question}\nAnswer: Let's think step by step.")
+        logging.info(f"Generated itinerary: {response}")
+        return response
     
 # Folium Map Integration 
 class FoliumMapGenerator:
@@ -290,70 +328,71 @@ class FoliumMapGenerator:
 # Main Functionality
 def process_user_question(user_question):
     """
-    Process the user's question and generate a travel itinerary.
+    Process the user's question and generate a summarized travel itinerary with hotel links, images, and an interactive map.
     """
-    # ตรวจสอบคำสำคัญในคำถาม
-    keywords = ["plan", "itinerary", "trip", "days", "province"]
-    if not any(keyword.lower() in user_question.lower() for keyword in keywords):
-        logging.error("The question does not seem to be related to travel planning. Please include keywords like 'plan', 'itinerary', 'trip', or 'days'.")
-        return
-
-    # ใช้ Regular Expression ที่ยืดหยุ่นขึ้น
+    # ตรวจสอบความถูกต้องของคำถามผู้ใช้
     province_match = re.search(
         r"(?:plan|itinerary|trip|days).*?(?:to|for) (.+?) province",
         user_question,
         re.IGNORECASE
     )
     if not province_match:
-        logging.error("Could not extract province name. Please use a format like 'Plan a trip to [province] province' or 'Itinerary for [province] province'.")
-        return
+        logging.error("Could not extract province name. Please use a format like 'Plan a trip to [province] province'.")
+        return "กรุณาระบุจังหวัดในประเทศไทยที่ต้องการวางแผนการเดินทาง."
 
     province_name = province_match.group(1).strip()
     logging.info(f"Searching for tourist attractions in {province_name} province...")
 
-    # Fetch tourist attractions from Wikipedia
+    # ดึงข้อมูลสถานที่ท่องเที่ยวจาก Wikipedia
     wikipedia_integration = WikipediaIntegration()
     attractions = wikipedia_integration.get_tourist_attractions(province_name)
 
     if not attractions:
         logging.warning(f"No information found for tourist attractions in {province_name} province.")
-        return
+        return f"ไม่มีข้อมูลสถานที่ท่องเที่ยวสำหรับจังหวัด {province_name}."
 
     # Generate travel itinerary
     itinerary_generator = ItineraryGenerator()
     itinerary = itinerary_generator.generate_itinerary(province_name, attractions)
     logging.info(f"Generated Itinerary: {itinerary}")
 
-    # Initialize GoogleIntegration instance
-    google_integration = GoogleIntegration()
-
-    # Fetch hotel booking links
-    booking_links = google_integration.generate_booking_links(province_name)
-    logging.info("Hotel Booking Links:")
-    for hotel in booking_links:
-        logging.info(f"Hotel: {hotel['name']}, Website: {hotel['website']}")
-
     # Parse locations from the itinerary
     folium_map_generator = FoliumMapGenerator()
     locations = folium_map_generator.parse_itinerary_locations(itinerary, province_name)
-    logging.info(f"Parsed Locations: {locations}")
+
+    # Validate locations and fetch details
+    valid_locations = []
+    google_integration = GoogleIntegration()
+    for loc in locations:
+        place_info = google_integration.get_place_by_name(loc["name"])
+        if place_info and "Thailand" in place_info["address"]:
+            valid_locations.append({
+                "name": place_info["name"],
+                "address": place_info["address"],
+                "latitude": place_info["latitude"],
+                "longitude": place_info["longitude"],
+                "activity": loc["activity"],
+                "type": loc.get("type", "general"),
+                "image_url": google_integration.get_place_image_url(place_info["place_id"])
+            })
 
     # Generate Folium map
-    map_html, location_data = folium_map_generator.generate_folium_map(locations, google_integration)
-    logging.info("Generated Folium map and location data.")
-    logging.info(f"Location Data: {location_data}")
+    map_html, location_data = folium_map_generator.generate_folium_map(valid_locations, google_integration)
+
+    # Fetch hotel booking links
+    booking_links = google_integration.generate_booking_links(province_name)
 
     # Add images to the response
-    location_gallery_html = "<h3>Recommended Locations:</h3><div class='gallery-container'>"
+    location_gallery_html = "<h3>Recommended Locations:</h3><div style='display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;'>"
     for loc in location_data:
         if loc.get("image_url"):
             location_gallery_html += f"""
-            <div class="location-card">
-                <img src="{loc['image_url']}" alt="{loc['name']}" class="location-image" style="width:100%;height:150px;object-fit:cover;border-radius:8px;"/>
-                <div class="location-info">
-                    <h4>{loc['name']}</h4>
-                    <p>{loc['address']}</p>
-                    <p><strong>Activity:</strong> {loc['activity']}</p>
+            <div style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden; text-align: center;">
+                <img src="{loc['image_url']}" alt="{loc['name']}" style="width:100%;height:150px;object-fit:cover;">
+                <div style="padding: 10px;">
+                    <h4 style="font-size: 16px;">{loc['name']}</h4>
+                    <p style="font-size: 14px; color: gray;">{loc['address']}</p>
+                    <p style="font-size: 12px;"><strong>Activity:</strong> {loc['activity']}</p>
                 </div>
             </div>
             """
@@ -361,15 +400,19 @@ def process_user_question(user_question):
 
     # Combine all parts into the response
     response = f"""
-    <h2>Travel Itinerary for {province_name}</h2>
-    <pre class="formatted-itinerary">{itinerary}</pre>
-    <h3>Interactive Map:</h3>
-    <div>{map_html}</div>
-    <h3>Hotel Booking Links:</h3>
-    <ul>
-        {''.join([f"<li><a href='{hotel['website']}' target='_blank'>{hotel['name']}</a></li>" for hotel in booking_links])}
-    </ul>
-    {location_gallery_html}
+    <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2 style="color: #333;">Travel Itinerary for {province_name}</h2>
+        <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px;">
+            <pre class="formatted-itinerary" style="white-space: pre-wrap;">{itinerary}</pre>
+        </div>
+        <h3 style="margin-top: 20px;">Interactive Map:</h3>
+        <div>{map_html}</div>
+        <h3 style="margin-top: 20px;">Hotel Booking Links:</h3>
+        <ul style="list-style-type: none; padding: 0;">
+            {''.join([f"<li style='margin: 5px 0;'><a href='{hotel['website']}' target='_blank' style='text-decoration: none; color: #007BFF;'>{hotel['name']}</a></li>" for hotel in booking_links])}
+        </ul>
+        {location_gallery_html}
+    </div>
     """
     return response
 
@@ -380,117 +423,3 @@ if __name__ == "__main__":
     process_user_question(user_question)
     end_time = time.time()
     logging.info(f"Processing Time: {end_time - start_time:.2f} seconds")
-
-# def validate_user_question(question: str):
-#     # Define pattern for provinces in English
-#     province_pattern = r"(Chiang Mai|Bangkok|Phuket|Krabi|Chiang Rai|Saraburi|Udon Thani|Surat Thani|Nakhon Ratchasima|Amnat Charoen|Ang Thong|Buriram|Chachoengsao|Chai Nat|Chaiyaphum|Chanthaburi|Chonburi|Chumphon|Kalasin|Kamphaeng Phet|Kanchanaburi|Khon Kaen|Krabi|Lampang|Lamphun|Loei|Lopburi|Mae Hong Son|Maha Sarakham|Mukdahan|Nakhon Nayok|Nakhon Pathom|Nakhon Phanom|Nakhon Sawan|Nakhon Si Thammarat|Nan|Narathiwat|Nong Bua Lamphu|Nong Khai|Nonthaburi|Pathum Thani|Phang Nga|Phayao|Phetchabun|Phetchaburi|Phichit|Phitsanulok|Phra Nakhon Si Ayutthaya|Phrae|Prachinburi|Prachuap Khiri Khan|Ranong|Ratchaburi|Rayong|Samut Sakhon|Sa Kaeo|Sakon Nakhon|Samut Prakan|Samut Songkhram|Satun|Sisaket|Songkhla|Sukhothai|Suphan Buri|Surat Thani|Surin|Tak|Trang|Trat|Ubon Ratchathani|Udon Thani|Uthai Thani|Uttaradit|Yala|Yasothon)"
-    
-#     # Define pattern for number of days or nights
-#     days_pattern = r"(\d+)\s*(days|nights)"  # Match 'days' or 'nights'
-
-#     # Extract the number of days from the question
-#     days_match = re.search(days_pattern, question)
-#     if days_match:
-#         days = int(days_match.group(1))  # Extract the number of days from the question
-#     else:
-#         days = None  # If no number of days is found
-
-#     # Extract the province from the question
-#     province_match = re.search(province_pattern, question)
-#     if province_match:
-#         province = province_match.group(1)  # Extract the province name
-#     else:
-#         province = None  # If no province is found
-
-#     # Check if both province and days are found
-#     if province and days:
-#         return province, days
-#     else:
-#         return None, None
-
-
-# def process_user_question(user_question):
-#     """
-#     ประมวลผลคำถามของผู้ใช้และสร้างแผนการเดินทาง
-#     """
-#     # ตรวจสอบความถูกต้องของคำถามผู้ใช้
-#     province, days = validate_user_question(user_question)
-#     if not province or not days:
-#         return "<p>กรุณาระบุจังหวัดและจำนวนวันที่ต้องการวางแผนการเดินทาง.</p>"
-
-#     logging.info(f"ค้นหาสถานที่ท่องเที่ยวในจังหวัด {province} สำหรับ {days} วัน...")
-
-#     # ดึงข้อมูลสถานที่ท่องเที่ยวจาก Wikipedia
-#     wikipedia_integration = WikipediaIntegration()
-#     attractions = wikipedia_integration.get_tourist_attractions(province)
-#     logging.info(f"Attractions for {province}: {attractions}")
-#     if not attractions:
-#         return f"<p>ไม่มีข้อมูลสถานที่ท่องเที่ยวสำหรับจังหวัด {province}. กรุณาลองจังหวัดอื่น.</p>"
-
-#     # สร้างแผนการเดินทาง
-#     itinerary_generator = ItineraryGenerator()
-#     itinerary = itinerary_generator.generate_itinerary(province, attractions)
-#     logging.info(f"Generated itinerary: {itinerary}")
-#     if not itinerary:
-#         return f"<p>ไม่สามารถสร้างแผนการเดินทางได้ กรุณาลองอีกครั้ง.</p>"
-
-#     # แยกสถานที่จากแผนการเดินทาง
-#     folium_map_generator = FoliumMapGenerator()
-#     locations = folium_map_generator.parse_itinerary_locations(itinerary, province)
-
-#     # ตรวจสอบสถานที่เพื่อให้แน่ใจว่าอยู่ในประเทศไทย
-#     valid_locations = []
-#     google_integration = GoogleIntegration()
-#     for loc in locations:
-#         place_info = google_integration.get_place_by_name(loc["name"])
-#         if place_info and "Thailand" in place_info["address"]:
-#             valid_locations.append({
-#                 "name": place_info["name"],
-#                 "address": place_info["address"],
-#                 "latitude": place_info["latitude"],
-#                 "longitude": place_info["longitude"],
-#                 "activity": loc["activity"],
-#                 "type": loc.get("type", "general"),
-#                 "image_url": google_integration.get_place_image_url(place_info["place_id"])
-#             })
-
-#     # สร้างแผนที่ Folium จากสถานที่ที่ตรวจสอบแล้ว
-#     map_html, location_data = folium_map_generator.generate_folium_map(valid_locations, google_integration)
-
-#     # ดึงลิงก์การจองโรงแรม
-#     hotel_links = google_integration.generate_booking_links(province)
-#     hotel_links_html = "<h3>ลิงก์การจองโรงแรม:</h3><ul>"
-#     for hotel in hotel_links:
-#         hotel_links_html += f"<li><a href='{hotel['website']}' target='_blank'>{hotel['name']}</a></li>"
-#     hotel_links_html += "</ul>"
-
-#     # สร้าง HTML แกลเลอรีสถานที่จากสถานที่ที่ตรวจสอบแล้ว
-#     location_gallery_html = "<h3>สถานที่แนะนำ:</h3><div>"
-#     for loc in location_data:
-#         if loc.get("image_url"):
-#             location_gallery_html += f"""
-#             <div>
-#                 <img src="{loc['image_url']}" alt="{loc['name']}" style="width:100px;height:100px;object-fit:cover;"/>
-#                 <p>{loc['name']}</p>
-#             </div>
-#             """
-#     location_gallery_html += "</div>"
-
-#     # รวมทุกส่วนเป็นคำตอบเดียว
-#     response = f"""
-#     <h2>แผนการเดินทางสำหรับจังหวัด {province}</h2>
-#     <pre class="formatted-itinerary">{itinerary}</pre>
-#     <h3>แผนที่แบบโต้ตอบ:</h3>
-#     <div>{map_html}</div>
-#     {hotel_links_html}
-#     {location_gallery_html}
-#     """
-#     return response
-
-# # Entry Point
-# if __name__ == "__main__":
-#     user_question = input("Please enter your question (e.g., 'Create a travel itinerary for Krabi province'): ")
-#     start_time = time.time()
-#     process_user_question(user_question)
-#     end_time = time.time()
-#     logging.info(f"Processing Time: {end_time - start_time:.2f} seconds")
