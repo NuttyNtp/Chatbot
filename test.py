@@ -113,7 +113,7 @@ class WikipediaIntegration:
         Fetch tourist attractions from Wikipedia for a given province.
         """
         queries = [
-            f"Tourist attractions in {province_name} province, Thailand",
+            f"Category:Tourist attractions in {province_name} province",
             f"{province_name} province attractions",
             f"Things to do in {province_name} province"
         ]
@@ -343,6 +343,15 @@ def process_user_question(user_question):
     province_name = province_match.group(1).strip()
     logging.info(f"Searching for tourist attractions in {province_name} province...")
 
+    # ตรวจสอบจำนวนวันในคำถามผู้ใช้
+    days_match = re.search(r"(\d+)\s*(?:day|days)", user_question, re.IGNORECASE)
+    if not days_match:
+        logging.warning("Could not extract the number of days. Defaulting to 3 days.")
+        num_days = 3  # Default to 3 days if not specified
+    else:
+        num_days = int(days_match.group(1))
+        logging.info(f"Number of days specified: {num_days}")
+
     # ดึงข้อมูลสถานที่ท่องเที่ยวจาก Wikipedia
     wikipedia_integration = WikipediaIntegration()
     attractions = wikipedia_integration.get_tourist_attractions(province_name)
@@ -356,6 +365,9 @@ def process_user_question(user_question):
     itinerary = itinerary_generator.generate_itinerary(province_name, attractions)
     logging.info(f"Generated Itinerary: {itinerary}")
 
+    # ลบข้อความที่เกี่ยวข้องกับ "Step 1", "Step 2", ฯลฯ
+    itinerary_cleaned = re.sub(r"(Step \d+:)", "", itinerary).strip()
+    
     # Parse locations from the itinerary
     folium_map_generator = FoliumMapGenerator()
     locations = folium_map_generator.parse_itinerary_locations(itinerary, province_name)
@@ -381,10 +393,21 @@ def process_user_question(user_question):
 
     # Fetch hotel booking links
     booking_links = google_integration.generate_booking_links(province_name)
+    filtered_booking_links = [
+        hotel for hotel in booking_links if hotel['website'] != "No website available"
+    ][:5]  # Limit to 5 hotels with available links
+
+    # Ensure map images are unique and coordinates are within the specified province
+    unique_location_data = []
+    seen_images = set()
+    for loc in location_data:
+        if loc.get("image_url") not in seen_images and province_name.lower() in loc["address"].lower():
+            unique_location_data.append(loc)
+            seen_images.add(loc.get("image_url"))
 
     # Add images to the response
     location_gallery_html = "<h3>Recommended Locations:</h3><div style='display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;'>"
-    for loc in location_data:
+    for loc in unique_location_data:
         if loc.get("image_url"):
             location_gallery_html += f"""
             <div style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden; text-align: center;">
@@ -403,13 +426,13 @@ def process_user_question(user_question):
     <div style="font-family: Arial, sans-serif; padding: 20px;">
         <h2 style="color: #333;">Travel Itinerary for {province_name}</h2>
         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px;">
-            <pre class="formatted-itinerary" style="white-space: pre-wrap;">{itinerary}</pre>
+            <pre class="formatted-itinerary" style="white-space: pre-wrap;">{itinerary_cleaned}</pre>
         </div>
         <h3 style="margin-top: 20px;">Interactive Map:</h3>
         <div>{map_html}</div>
         <h3 style="margin-top: 20px;">Hotel Booking Links:</h3>
         <ul style="list-style-type: none; padding: 0;">
-            {''.join([f"<li style='margin: 5px 0;'><a href='{hotel['website']}' target='_blank' style='text-decoration: none; color: #007BFF;'>{hotel['name']}</a></li>" for hotel in booking_links])}
+            {''.join([f"<li style='margin: 5px 0;'><a href='{hotel['website']}' target='_blank' style='text-decoration: none; color: #007BFF;'>{hotel['name']}</a></li>" for hotel in filtered_booking_links])}
         </ul>
         {location_gallery_html}
     </div>
