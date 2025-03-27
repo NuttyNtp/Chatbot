@@ -105,6 +105,27 @@ class GoogleIntegration:
         logging.error("Failed to fetch hotel booking links.")
         return []
 
+    @staticmethod
+    def get_places_by_itinerary(itinerary_places):
+        """
+        Search for multiple places by names from the itinerary using Google Places API.
+        """
+        places = []
+        for place_name in itinerary_places:
+            logging.info(f"Searching for place: {place_name}")
+            place_info = GoogleIntegration.get_place_by_name(place_name)
+            if place_info:
+                places.append({
+                    "name": place_info["name"],
+                    "address": place_info["address"],
+                    "latitude": place_info["latitude"],
+                    "longitude": place_info["longitude"],
+                    "place_id": place_info["place_id"]
+                })
+            else:
+                logging.warning(f"Could not find details for place: {place_name}")
+        return places
+
 # Wikipedia Integration Class
 class WikipediaIntegration:
     def __init__(self):
@@ -189,7 +210,13 @@ class ItineraryGenerator:
         if not filtered_attractions:
             return f"ไม่พบสถานที่ท่องเที่ยวที่สามารถค้นหาบน Google Maps ในจังหวัด {province}."
 
-        question = f"Create a {days} days itinerary for {province} province based on the following tourist attractions: {filtered_attractions}."
+        question = f"""
+Create a {days}-day travel itinerary for {province} province in Thailand.
+The itinerary should include:
+1. A list of activities for each day.
+2. Highlight 2-3 famous tourist attractions for each day from the following list: {filtered_attractions}.
+3. Ensure the plan is well-structured with proper formatting, including line breaks and bullet points.
+"""
         logging.info(f"Generated question for Llama: {question}")
 
         # ใช้ invoke() แทน run() และใส่ province ด้วย
@@ -414,58 +441,23 @@ def process_user_question(user_question):
     itinerary = itinerary_generator.generate_itinerary(user_question, attractions)
     logging.info(f"Generated Itinerary: {itinerary}")
 
+    # Clean and format the itinerary text
+    itinerary_cleaned = re.sub(r"[*#/]", "", itinerary).strip()
+
     # ดึง filtered_attractions จาก ItineraryGenerator
     filtered_attractions = [attraction for attraction in attractions if province_name.lower() in attraction.lower()]
 
-    # ค้นหาข้อมูลสถานที่จาก Google Search
-    google_integration = GoogleIntegration()
-    valid_locations = []
-
-    for attraction in filtered_attractions:
-        place_info = google_integration.get_place_by_name(attraction)
-        if place_info:
-            valid_locations.append({
-                "name": place_info["name"],
-                "address": place_info["address"],
-                "latitude": place_info["latitude"],
-                "longitude": place_info["longitude"],
-                "image_url": google_integration.get_place_image_url(place_info["place_id"]),
-                "activity": f"Visit {place_info['name']}",
-                "type": "general"
-            })
-        else:
-            logging.warning(f"Could not find details for attraction: {attraction}")
-
     # Parse locations from the itinerary
     folium_map_generator = FoliumMapGenerator()
-    locations = folium_map_generator.parse_itinerary_locations(itinerary, province_name)
+    itinerary_places = [loc["name"] for loc in folium_map_generator.parse_itinerary_locations(itinerary, province_name)]
 
-    # Validate locations and fetch details
-    valid_locations = []
+    # ค้นหาข้อมูลสถานที่จาก Google Places API
     google_integration = GoogleIntegration()
+    valid_locations = google_integration.get_places_by_itinerary(itinerary_places)
 
-    for loc in locations:
-        # ดึงชื่อสถานที่จากคีย์ "name"
-        attraction_name: Optional[str] = loc.get("name")
-        if attraction_name:
-            # เรียก GoogleIntegration เพื่อดึงข้อมูลสถานที่
-            place_info = google_integration.get_place_by_name(attraction_name)
-            if place_info and "Thailand" in place_info["address"]:
-                valid_locations.append({
-                    "name": place_info["name"],
-                    "address": place_info["address"],
-                    "latitude": place_info["latitude"],
-                    "longitude": place_info["longitude"],
-                    
-                    "activity": loc.get("activity", "No activity specified"),
-                    "type": loc.get("type", "general"),
-                    "image_url": google_integration.get_place_image_url(place_info["place_id"])
-                })
-            else:
-                logging.warning(f"Place {attraction_name} not found or not located in Thailand.")
-        else:
-            logging.warning(f"Attraction information missing for location: {loc}")
-
+    # ตรวจสอบข้อมูลที่ได้
+    for location in valid_locations:
+        logging.info(f"Place found: {location['name']} at {location['address']}")
 
     # Generate Folium map
     folium_map_generator = FoliumMapGenerator()
@@ -506,8 +498,8 @@ def process_user_question(user_question):
     <div style="font-family: Arial, sans-serif; padding: 20px;">
         <h2 style="color: #333;">Travel Itinerary for {province_name}</h2>
         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px;">
-            <pre class="formatted-itinerary" style="white-space: pre-wrap;">
-{itinerary}
+            <pre class="formatted-itinerary" style="white-space: pre-wrap; line-height: 1.6; font-size: 14px; color: #555;">
+{itinerary_cleaned}
             </pre>
         </div>
         <h3 style="margin-top: 20px;">Interactive Map:</h3>
