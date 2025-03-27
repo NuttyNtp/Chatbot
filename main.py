@@ -184,6 +184,8 @@ def handle_message(data):
     conversation_history[session_id].append({'user': user_message})
 
     try:
+        response = ""  # Initialize response variable
+
         # เงื่อนไขที่ 1: หากผู้ใช้ถามเกี่ยวกับแผนการเดินทาง
         is_travel_related, validation_error = validate_user_question(user_message)
         if is_travel_related:
@@ -234,7 +236,8 @@ def handle_message(data):
                 response = "Sorry, I couldn't generate the PDF at the moment."
 
         # เงื่อนไขที่ 4: หากผู้ใช้ขอลิงก์จองตั๋วเครื่องบิน
-        elif "book flight" in user_message.lower() or "flight link" in user_message.lower() or "Give me a booking link of flight" in user_message.lower():
+        elif "Give me a booking link of flight" in user_message.lower() or "book flight" in user_message.lower() or "flight link" in user_message.lower() or "Give me a booking link of flight" in user_message.lower():
+            logging.info("Processing request for flight booking link.")
             response = """
             <div class="flight-booking-container">
                 <p>You can book your flight using the following trusted platforms:</p>
@@ -256,6 +259,27 @@ def handle_message(data):
                 </ul>
             </div>
             """
+        
+        # เงื่อนไขที่ 6: หากผู้ใช้ถามคำถามทั่วไป
+        else:
+            prompt = f"""
+            You are a Thailand Assistant with extensive knowledge about Thailand's culture, history, geography, and general information. 
+            Please provide a clear, concise, and well-structured response to the user's question in no more than 3 lines for quick understanding.
+
+            User: {user_message}
+            Assistant:
+            """
+            result = subprocess.run(
+                ["ollama", "run", "llama3.1:latest", prompt],
+                capture_output=True,
+                text=True,
+                encoding='utf-8'
+            )
+            response = result.stdout.strip()
+
+        # If no conditions match, set a default response
+        if not response:
+            response = "Sorry, I couldn't understand your request. Please try again."
 
         # ส่งข้อความกลับไปยัง UI
         logging.info(f"Response: {response}")
@@ -271,6 +295,8 @@ def handle_message(data):
             'message': "Sorry, I couldn't process your request at the moment.",
             'timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
+
+
 
 # PDF download route
 @app.route('/download_pdf/<session_id>/<destination_name>', methods=['GET'])
