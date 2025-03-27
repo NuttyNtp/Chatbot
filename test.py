@@ -2,17 +2,19 @@ import time
 import requests
 import logging
 import re
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_ollama.llms import OllamaLLM
+from langchain.chains import LLMChain
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_community.tools import WikipediaQueryRun
 from langchain_community.utilities import WikipediaAPIWrapper
 import folium
 from folium.plugins import MarkerCluster
+from typing import Optional
 # Constants
 GOOGLE_MAPS_API_KEY = "AIzaSyDv_OEg50nhbpvW-EtNy3ze-dqsG4tPEEI"
 
 # Logging Configuration
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s: %(message)s")
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
 
 # Google Integration Class
 class GoogleIntegration:
@@ -113,9 +115,18 @@ class WikipediaIntegration:
         Fetch tourist attractions from Wikipedia for a given province.
         """
         queries = [
+            f"Page: Category:Tourist attractions in {province_name}",
             f"Category:Tourist attractions in {province_name} province",
             f"{province_name} province attractions",
-            f"Things to do in {province_name} province"
+            f"Things to do in {province_name} province",
+            f"Pages in category Buddhist temples in {province_name} province",
+            f"Pages in category Tourist attractions in {province_name} province",
+            f"Pages in category Museums in {province_name}",
+            f"{province_name}",
+            f"Tourism in {province_name}",  # Direct search for tourism-related page
+            f"{province_name} tourism",
+            f"{province_name} attractions",
+            f"Page: Category:Tourist attractions in {province_name}"
         ]
         relevant_attractions = []
         for query in queries:
@@ -137,34 +148,72 @@ class WikipediaIntegration:
 
         return relevant_attractions
 
-# Itinerary Generator Class
 class ItineraryGenerator:
     def __init__(self):
         self.model = OllamaLLM(model="llama3.1")
+        
         self.prompt_template = ChatPromptTemplate.from_template(
-            """Question: {question}\n\nAnswer: Let's think step by step."""
+            """Question: {question}\nProvince: {province}\nAnswer: Provide a list of tourist attractions' names in {province} province, Thailand."""
         )
+        
+        # ใช้ LLMChain ตามปกติ
+        self.chain = LLMChain(llm=self.model, prompt=self.prompt_template)
 
-    def generate_itinerary(self, province_name, attractions):
-        """
-        Generate a travel itinerary using the model.
-        """
-        # กรองสถานที่ให้มีเฉพาะในประเทศไทย
-        filtered_attractions = [
-            attraction for attraction in attractions if "Thailand" in attraction
-        ]
+    def extract_trip_details(self, input_text):
+        if not isinstance(input_text, str):
+            logging.error("Input text is not a string.")
+            return None, None
+
+        match = re.search(r"(an?\s+)?(\d+)\s+day[s]?\s+itinerary\s+for\s+([a-zA-Z\s]+)\s+province", input_text)
+        if not match:
+            match = re.search(r"itinerary\s+for\s+([a-zA-Z\s]+)\s+province", input_text)
+            if match:
+                days = 3
+                province = match.group(1).strip()
+                return days, province
+            else:
+                logging.warning(f"ไม่สามารถแยกข้อมูลจากข้อความ: {input_text}")
+                return None, None
+
+        days = int(match.group(2))
+        province = match.group(3).strip()
+        return days, province
+
+    def generate_itinerary(self, input_text, attractions):
+        days, province = self.extract_trip_details(input_text)
+        if not days or not province:
+            return "ไม่สามารถแยกข้อมูลจากข้อความได้"
+
+        filtered_attractions = [attraction for attraction in attractions if province.lower() in attraction.lower()]
+
         if not filtered_attractions:
-            logging.warning(f"No valid attractions found in Thailand for {province_name}.")
-            return f"ไม่มีข้อมูลสถานที่ท่องเที่ยวในประเทศไทยสำหรับจังหวัด {province_name}."
+            return f"ไม่พบสถานที่ท่องเที่ยวที่สามารถค้นหาบน Google Maps ในจังหวัด {province}."
 
-        # สร้างคำถามสำหรับโมเดล
-        question = f"Create a travel itinerary for {province_name} province based on these tourist attractions in Thailand: {filtered_attractions}."
+        question = f"Create a {days} days itinerary for {province} province based on the following tourist attractions: {filtered_attractions}."
         logging.info(f"Generated question for Llama: {question}")
 
-        # เรียกใช้โมเดล Llama เพื่อสร้างแผนการเดินทาง
-        response = self.model.invoke(f"Question: {question}\nAnswer: Let's think step by step.")
-        logging.info(f"Generated itinerary: {response}")
+        # ใช้ invoke() แทน run() และใส่ province ด้วย
+        response = self.chain.invoke({"question": question, "province": province})
+        logging.info(f"Raw response from Llama: {response}")
+
+        # ตรวจสอบว่า response เป็น dict หรือไม่
+        if isinstance(response, dict):
+            if "answer" in response:
+                response = response["answer"]
+            elif "text" in response:  # รองรับคีย์ "text"
+                response = response["text"]
+            else:
+                logging.error("Response from Llama does not contain 'answer' or 'text' key.")
+                return "เกิดข้อผิดพลาดในการประมวลผลคำตอบจาก Llama."
+
+        # ตรวจสอบว่า response เป็น string หรือไม่
+        if not isinstance(response, str):
+            logging.error(f"Expected string, but got {type(response)}: {response}")
+            return "เกิดข้อผิดพลาดในการประมวลผลคำตอบจาก Llama."
+
+        logging.info(f"Processed response from Llama: {response}")
         return response
+
     
 # Folium Map Integration 
 class FoliumMapGenerator:
@@ -362,11 +411,11 @@ def process_user_question(user_question):
 
     # Generate travel itinerary
     itinerary_generator = ItineraryGenerator()
-    itinerary = itinerary_generator.generate_itinerary(province_name, attractions)
+    itinerary = itinerary_generator.generate_itinerary(user_question, attractions)
     logging.info(f"Generated Itinerary: {itinerary}")
 
-    # ลบข้อความที่เกี่ยวข้องกับ "Step 1", "Step 2", ฯลฯ
-    itinerary_cleaned = re.sub(r"(Step \d+:)", "", itinerary).strip()
+    #  ลบข้อความที่เกี่ยวข้องกับ "Step 1", "Step 2", ฯลฯ
+    # itinerary_cleaned = re.sub(r"(Step \d+:)", "", itinerary).strip()
     
     # Parse locations from the itinerary
     folium_map_generator = FoliumMapGenerator()
@@ -375,18 +424,29 @@ def process_user_question(user_question):
     # Validate locations and fetch details
     valid_locations = []
     google_integration = GoogleIntegration()
+
     for loc in locations:
-        place_info = google_integration.get_place_by_name(loc["name"])
-        if place_info and "Thailand" in place_info["address"]:
-            valid_locations.append({
-                "name": place_info["name"],
-                "address": place_info["address"],
-                "latitude": place_info["latitude"],
-                "longitude": place_info["longitude"],
-                "activity": loc["activity"],
-                "type": loc.get("type", "general"),
-                "image_url": google_integration.get_place_image_url(place_info["place_id"])
-            })
+        # ดึงชื่อสถานที่จากคีย์ "name"
+        attraction_name: Optional[str] = loc.get("name")
+        if attraction_name:
+            # เรียก GoogleIntegration เพื่อดึงข้อมูลสถานที่
+            place_info = google_integration.get_place_by_name(attraction_name)
+            if place_info and "Thailand" in place_info["address"]:
+                valid_locations.append({
+                    "name": place_info["name"],
+                    "address": place_info["address"],
+                    "latitude": place_info["latitude"],
+                    "longitude": place_info["longitude"],
+                    
+                    "activity": loc.get("activity", "No activity specified"),
+                    "type": loc.get("type", "general"),
+                    "image_url": google_integration.get_place_image_url(place_info["place_id"])
+                })
+            else:
+                logging.warning(f"Place {attraction_name} not found or not located in Thailand.")
+        else:
+            logging.warning(f"Attraction information missing for location: {loc}")
+
 
     # Generate Folium map
     map_html, location_data = folium_map_generator.generate_folium_map(valid_locations, google_integration)
@@ -426,13 +486,20 @@ def process_user_question(user_question):
     <div style="font-family: Arial, sans-serif; padding: 20px;">
         <h2 style="color: #333;">Travel Itinerary for {province_name}</h2>
         <div style="background-color: #f9f9f9; padding: 15px; border-radius: 8px;">
-            <pre class="formatted-itinerary" style="white-space: pre-wrap;">{itinerary_cleaned}</pre>
+            <pre class="formatted-itinerary" style="white-space: pre-wrap;">
+{itinerary}
+            </pre>
         </div>
         <h3 style="margin-top: 20px;">Interactive Map:</h3>
-        <div>{map_html}</div>
+        <div>
+{map_html}
+        </div>
         <h3 style="margin-top: 20px;">Hotel Booking Links:</h3>
         <ul style="list-style-type: none; padding: 0;">
-            {''.join([f"<li style='margin: 5px 0;'><a href='{hotel['website']}' target='_blank' style='text-decoration: none; color: #007BFF;'>{hotel['name']}</a></li>" for hotel in filtered_booking_links])}
+            {''.join([
+                f"<li style='margin: 5px 0;'><a href='{hotel['website']}' target='_blank' style='text-decoration: none; color: #007BFF;'>{hotel['name']}</a></li>"
+                for hotel in filtered_booking_links
+            ])}
         </ul>
         {location_gallery_html}
     </div>

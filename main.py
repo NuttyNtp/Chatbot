@@ -194,8 +194,8 @@ def handle_message(data):
             response = f"""
             <div class="destination-details-container">
                 <div class="itinerary-section">
-                    <h3>Your Travel Plan</h3>
-                    <pre class="formatted-itinerary" style="white-space: pre-wrap; word-break: break-word; max-width: 100%; overflow-wrap: break-word; font-size: 14px; padding: 10px; background-color: #f9f9f9; border-radius: 8px;">
+                    <h3 style="margin-bottom: 10px;">Your Travel Plan</h3>
+                    <pre class="formatted-itinerary" style="white-space: pre-wrap; word-break: break-word; max-width: 100%; overflow-wrap: break-word; font-size: 14px; padding: 10px; background-color: #f9f9f9; border-radius: 8px; margin-top: 5px;">
                         {response}
                     </pre>
                 </div>
