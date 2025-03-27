@@ -414,9 +414,28 @@ def process_user_question(user_question):
     itinerary = itinerary_generator.generate_itinerary(user_question, attractions)
     logging.info(f"Generated Itinerary: {itinerary}")
 
-    #  ลบข้อความที่เกี่ยวข้องกับ "Step 1", "Step 2", ฯลฯ
-    # itinerary_cleaned = re.sub(r"(Step \d+:)", "", itinerary).strip()
-    
+    # ดึง filtered_attractions จาก ItineraryGenerator
+    filtered_attractions = [attraction for attraction in attractions if province_name.lower() in attraction.lower()]
+
+    # ค้นหาข้อมูลสถานที่จาก Google Search
+    google_integration = GoogleIntegration()
+    valid_locations = []
+
+    for attraction in filtered_attractions:
+        place_info = google_integration.get_place_by_name(attraction)
+        if place_info:
+            valid_locations.append({
+                "name": place_info["name"],
+                "address": place_info["address"],
+                "latitude": place_info["latitude"],
+                "longitude": place_info["longitude"],
+                "image_url": google_integration.get_place_image_url(place_info["place_id"]),
+                "activity": f"Visit {place_info['name']}",
+                "type": "general"
+            })
+        else:
+            logging.warning(f"Could not find details for attraction: {attraction}")
+
     # Parse locations from the itinerary
     folium_map_generator = FoliumMapGenerator()
     locations = folium_map_generator.parse_itinerary_locations(itinerary, province_name)
@@ -449,6 +468,7 @@ def process_user_question(user_question):
 
 
     # Generate Folium map
+    folium_map_generator = FoliumMapGenerator()
     map_html, location_data = folium_map_generator.generate_folium_map(valid_locations, google_integration)
 
     # Fetch hotel booking links
