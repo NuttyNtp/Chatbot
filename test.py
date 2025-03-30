@@ -9,7 +9,9 @@ from langchain_community.tools import WikipediaQueryRun
 from langchain_community.utilities import WikipediaAPIWrapper
 import folium
 from folium.plugins import MarkerCluster
-from typing import Optional
+from typing import Optional, List, Dict
+import random
+
 # Constants
 GOOGLE_MAPS_API_KEY = "AIzaSyDv_OEg50nhbpvW-EtNy3ze-dqsG4tPEEI"
 
@@ -216,6 +218,7 @@ The itinerary should include:
 1. A list of activities for each day.
 2. Highlight 2-3 famous tourist attractions for each day from the following list: {filtered_attractions}.
 3. Ensure the plan is well-structured with proper formatting, including line breaks and bullet points.
+4. For each tourist attraction, make sure to mention the specific name of the place clearly.
 """
         logging.info(f"Generated question for Llama: {question}")
 
@@ -241,109 +244,129 @@ The itinerary should include:
         logging.info(f"Processed response from Llama: {response}")
         return response
 
-    
-# Folium Map Integration 
-class FoliumMapGenerator:
+# Enhanced Folium Map Integration 
+class EnhancedFoliumMapGenerator:
     @staticmethod
-    def parse_itinerary_locations(itinerary_text, base_location_name):
+    def parse_itinerary_by_day(itinerary_text, base_location_name):
         """
-        Parse itinerary text to extract location names and activities.
-        Returns a list of dictionaries with location details.
+        Parse itinerary text to extract location names and activities, grouped by day.
+        Returns a dictionary with day numbers as keys and lists of locations as values.
         """
-        locations = []
-        # Add the main destination as the first location
-        locations.append({"name": base_location_name, "is_base": True, "activity": f"Main Destination: {base_location_name}"})
+        day_locations = {}
         
         # Define patterns to match different types of places
         place_patterns = {
-            "temple": r"(?:วัด|temple)\s*([\w\s]+)",
-            "mountain": r"(?:ภูเขา|mountain)\s*([\w\s]+)",
-            "market": r"(?:ตลาด|market)\s*([\w\s]+)",
-            "beach": r"(?:ชายหาด|beach)\s*([\w\s]+)",
-            "general": r"at\s+([\w\s]+)"
+            "temple": r"(?:วัด|[Tt]emple|Wat)\s*([\w\s]+)",
+            "mountain": r"(?:ภูเขา|[Mm]ountain|Khao)\s*([\w\s]+)",
+            "market": r"(?:ตลาด|[Mm]arket)\s*([\w\s]+)",
+            "beach": r"(?:ชายหาด|[Bb]each|Hat)\s*([\w\s]+)",
+            "waterfall": r"(?:[Ww]aterfall|น้ำตก)\s*([\w\s]+)",
+            "park": r"(?:[Pp]ark|อุทยาน|[Nn]ational [Pp]ark)\s*([\w\s]+)",
+            "museum": r"(?:[Mm]useum|พิพิธภัณฑ์)\s*([\w\s]+)",
+            "island": r"(?:[Ii]sland|เกาะ|Ko)\s*([\w\s]+)",
+            "cave": r"(?:[Cc]ave|ถ้ำ|Tham)\s*([\w\s]+)",
+            "palace": r"(?:[Pp]alace|พระราชวัง)\s*([\w\s]+)",
+            "general": r"(?:visit|at|to|explore)\s+([\w\s]+)"
         }
         
-        # Keywords to exclude unwanted places
+        # Excluded keywords to filter out non-places
         excluded_keywords = ["nightclub", "club", "office", "agency", "tour", "company"]
         
-        # Extract locations from itinerary using regex
-        day_pattern = r'Day \d+:.*?(?=Day \d+:|$)'
+        # Extract days from itinerary using regex
+        day_pattern = r'Day (\d+):(.+?)(?=Day \d+:|$)'
         day_matches = re.findall(day_pattern, itinerary_text, re.DOTALL)
-        for day_match in day_matches:
-            activity_lines = [line.strip() for line in day_match.split('\n') if line.strip()]
-            daily_locations = []
+        
+        # Base location is added to day 1
+        base_location = {
+            "name": f"{base_location_name} province",
+            "is_base": True,
+            "activity": f"Main Destination: {base_location_name} province",
+            "day": 1
+        }
+        
+        # Process each day's content
+        for day_num, day_content in day_matches:
+            day_num = int(day_num)
+            day_locations[day_num] = []
+            
+            # Process lines for this day
+            activity_lines = [line.strip() for line in day_content.split('\n') if line.strip()]
             for line in activity_lines:
-                matched = False
                 for place_type, pattern in place_patterns.items():
-                    match = re.search(pattern, line, re.IGNORECASE)
-                    if match:
+                    matches = re.finditer(pattern, line, re.IGNORECASE)
+                    for match in matches:
                         location_name = match.group(1).strip()
-                        if location_name and location_name != base_location_name:
-                            # Exclude unwanted places
-                            if not any(keyword in location_name.lower() for keyword in excluded_keywords):
-                                if len(daily_locations) < 4:  # Limit to 4 locations per day
-                                    daily_locations.append({
-                                        "name": f"{location_name}, {base_location_name}",
+                        if location_name and not any(keyword in location_name.lower() for keyword in excluded_keywords):
+                            # Clean up location name and combine with province
+                            clean_location = location_name.strip('.,:;()')
+                            if clean_location and len(clean_location) > 2:  # Minimum 3 characters for a place name
+                                full_name = f"{clean_location}, {base_location_name}"
+                                # Check if it's already in the list for this day
+                                if not any(loc["name"] == full_name for loc in day_locations.get(day_num, [])):
+                                    day_locations.setdefault(day_num, []).append({
+                                        "name": full_name,
                                         "type": place_type,
                                         "activity": line,
-                                        "is_base": False
+                                        "is_base": False,
+                                        "day": day_num
                                     })
-                                matched = True
-                                break
-                if not matched:
-                    # If no specific type matches, try general extraction
-                    general_match = re.search(place_patterns["general"], line, re.IGNORECASE)
-                    if general_match:
-                        location_name = general_match.group(1).strip()
-                        if location_name and location_name != base_location_name:
-                            # Exclude unwanted places
-                            if not any(keyword in location_name.lower() for keyword in excluded_keywords):
-                                if len(daily_locations) < 4:  # Limit to 4 locations per day
-                                    daily_locations.append({
-                                        "name": f"{location_name}, {base_location_name}",
-                                        "type": "general",
-                                        "activity": line,
-                                        "is_base": False
-                                    })
-            locations.extend(daily_locations)
         
-        # Remove duplicates while preserving order
-        unique_locations = []
-        seen = set()
-        for loc in locations:
-            if loc["name"] not in seen:
-                unique_locations.append(loc)
-                seen.add(loc["name"])
-        return unique_locations
+        # Add base location to day 1 if we have days
+        if day_locations and 1 in day_locations:
+            day_locations[1].insert(0, base_location)
+        
+        # Ensure we have all days represented
+        max_day = max(day_locations.keys()) if day_locations else 0
+        for day in range(1, max_day + 1):
+            if day not in day_locations:
+                day_locations[day] = []
+        
+        return day_locations
 
     @staticmethod
-    def generate_folium_map(locations, google_integration):
+    def generate_folium_map(day_locations, google_integration):
         """
-        Generate a Folium map with markers for all locations in the itinerary and draw optimal routes.
+        Generate a Folium map with day-by-day routes and color-coded markers.
         Returns HTML string of the map and location data.
         """
         default_lat, default_lon = 13.7563, 100.5018  # Bangkok, Thailand
         map_center = [default_lat, default_lon]
-        location_data = []
-        all_coordinates = []
-        image_cache = {}  # Cache images to avoid duplicates
-        
-        # Fetch coordinates and images for each location
-        for location in locations:
+        all_location_data = []
+        image_cache = {}  # Cache for images
+
+        # Day colors for routes and markers
+        day_colors = ['blue', 'red', 'green', 'purple', 'orange', 'darkblue', 'darkred', 'darkgreen', 
+                    'cadetblue', 'darkpurple', 'pink', 'lightblue', 'lightgreen', 'gray', 'black']
+
+        # Create the map
+        m = folium.Map(location=map_center, zoom_start=10, tiles="CartoDB positron")
+
+        # Create a separate FeatureGroup for each day
+        feature_groups = {}
+
+        # First pass: Get coordinates for all locations
+        flat_locations = []
+        for day, locations in day_locations.items():
+            for location in locations:
+                location["day"] = day  # Ensure day is set
+                flat_locations.append(location)
+
+        # Get coordinates and image URLs for all locations
+        for location in flat_locations:
             place_info = google_integration.get_place_by_name(location["name"])
             if place_info:
+                day = location["day"]
                 lat, lon = place_info['latitude'], place_info['longitude']
-                all_coordinates.append([lat, lon])
-                
-                # Fetch image URL and cache it to avoid duplicates
+                # Cache image URL
                 place_id = place_info['place_id']
                 if place_id not in image_cache:
                     image_url = google_integration.get_place_image_url(place_id)
                     image_cache[place_id] = image_url
                 else:
                     image_url = image_cache[place_id]
-                
-                location_data.append({
+
+                # Store location data
+                location_data = {
                     "name": place_info['name'],
                     "address": place_info['address'],
                     "lat": lat,
@@ -351,55 +374,57 @@ class FoliumMapGenerator:
                     "is_base": location.get("is_base", False),
                     "image_url": image_url,
                     "activity": location.get("activity", ""),
-                    "type": location.get("type", "general")
-                })
-        
-        # Create base map
-        m = folium.Map(location=map_center, zoom_start=10, tiles="CartoDB positron")
-        marker_cluster = MarkerCluster().add_to(m)
-        
-        # Define icons for different location types
-        icon_mapping = {
-            "temple": ("fa-pagelines", "red"),
-            "mountain": ("fa-mountain", "green"),
-            "market": ("fa-store", "orange"),
-            "beach": ("fa-umbrella-beach", "purple"),
-            "general": ("fa-info-circle", "gray")
-        }
-        
-        # Add markers for each location
-        for loc in location_data:
-            # Exclude business-related locations
-            if loc["type"] not in ["hotel", "general"] or "tour" not in loc["name"].lower():
+                    "type": location.get("type", "general"),
+                    "day": day
+                }
+                all_location_data.append(location_data)
+
+                # Create FeatureGroup for this day if it doesn't exist
+                if day not in feature_groups:
+                    feature_groups[day] = folium.FeatureGroup(name=f"Day {day}")
+                    feature_groups[day].add_to(m)
+
+                # Add marker to the appropriate day's FeatureGroup
+                day_color = day_colors[(day - 1) % len(day_colors)]
                 popup_html = f"""
                 <div style="width:250px">
-                    <h4>{loc['name']}</h4>
-                    <p>{loc['address']}</p>
-                    <p><strong>Activity:</strong> {loc['activity']}</p>
-                    {f'<img src="{loc["image_url"]}" style="width:100%;max-height:150px;object-fit:cover">' if loc.get('image_url') else ''}
+                    <h4>{place_info['name']}</h4>
+                    <p><strong>Day {day}</strong></p>
+                    <p>{place_info['address']}</p>
+                    <p><strong>Activity:</strong> {location['activity']}</p>
+                    {f'<img src="{image_url}" style="width:100%;max-height:150px;object-fit:cover">' if image_url else ''}
                 </div>
                 """
-                icon_type = loc.get("type", "general")
-                icon_details = icon_mapping.get(icon_type, icon_mapping["general"])
-                icon = folium.Icon(color=icon_details[1], icon=icon_details[0], prefix="fa")
                 folium.Marker(
-                    location=[loc['lat'], loc['lon']],
+                    location=[lat, lon],
                     popup=folium.Popup(popup_html, max_width=300),
-                    tooltip=loc['name'],
-                    icon=icon
-                ).add_to(marker_cluster)
-        
-        # Draw lines between locations
-        if len(all_coordinates) > 1:
-            folium.PolyLine(
-                locations=all_coordinates,
-                color="blue",
-                weight=2.5,
-                opacity=1
-            ).add_to(m)
-        
+                    tooltip=f"Day {day}: {place_info['name']}",
+                    icon=folium.Icon(color=day_color, icon="info-sign")
+                ).add_to(feature_groups[day])
+
+        # Draw routes for each day
+        for day, locations in day_locations.items():
+            coordinates = [[loc["lat"], loc["lon"]] for loc in all_location_data if loc["day"] == day]
+            if len(coordinates) > 1:
+                day_color = day_colors[(day - 1) % len(day_colors)]
+                folium.PolyLine(
+                    locations=coordinates,
+                    color=day_color,
+                    weight=4,
+                    opacity=0.8,
+                    tooltip=f"Day {day} Route"
+                ).add_to(feature_groups[day])
+
+        # Add Layer Control to toggle visibility of days
+        folium.LayerControl().add_to(m)
+
+        # If we have coordinates, set map center to the first valid location
+        if all_location_data:
+            map_center = [all_location_data[0]['lat'], all_location_data[0]['lon']]
+            m.location = map_center
+
         map_html = m._repr_html_()
-        return map_html, location_data
+        return map_html, all_location_data
 
 # Main Functionality
 def process_user_question(user_question):
@@ -447,21 +472,15 @@ def process_user_question(user_question):
     # ดึง filtered_attractions จาก ItineraryGenerator
     filtered_attractions = [attraction for attraction in attractions if province_name.lower() in attraction.lower()]
 
-    # Parse locations from the itinerary
-    folium_map_generator = FoliumMapGenerator()
-    itinerary_places = [loc["name"] for loc in folium_map_generator.parse_itinerary_locations(itinerary, province_name)]
-
-    # ค้นหาข้อมูลสถานที่จาก Google Places API
+    # Parse locations from the itinerary by day
+    enhanced_map_generator = EnhancedFoliumMapGenerator()
+    day_locations = enhanced_map_generator.parse_itinerary_by_day(itinerary, province_name)
+    
+    # Generate Google integration
     google_integration = GoogleIntegration()
-    valid_locations = google_integration.get_places_by_itinerary(itinerary_places)
-
-    # ตรวจสอบข้อมูลที่ได้
-    for location in valid_locations:
-        logging.info(f"Place found: {location['name']} at {location['address']}")
-
-    # Generate Folium map
-    folium_map_generator = FoliumMapGenerator()
-    map_html, location_data = folium_map_generator.generate_folium_map(valid_locations, google_integration)
+    
+    # Generate the enhanced map with day-by-day routes
+    map_html, location_data = enhanced_map_generator.generate_folium_map(day_locations, google_integration)
 
     # Fetch hotel booking links
     booking_links = google_integration.generate_booking_links(province_name)
@@ -469,29 +488,39 @@ def process_user_question(user_question):
         hotel for hotel in booking_links if hotel['website'] != "No website available"
     ][:5]  # Limit to 5 hotels with available links
 
-    # Ensure map images are unique and coordinates are within the specified province
-    unique_location_data = []
-    seen_images = set()
+    # Group images by day for the gallery
+    day_images = {}
     for loc in location_data:
-        if loc.get("image_url") not in seen_images and province_name.lower() in loc["address"].lower():
-            unique_location_data.append(loc)
-            seen_images.add(loc.get("image_url"))
-
-    # Add images to the response
-    location_gallery_html = "<h3>Recommended Locations:</h3><div style='display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;'>"
-    for loc in unique_location_data:
-        if loc.get("image_url"):
-            location_gallery_html += f"""
-            <div style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden; text-align: center;">
-                <img src="{loc['image_url']}" alt="{loc['name']}" style="width:100%;height:150px;object-fit:cover;">
-                <div style="padding: 10px;">
-                    <h4 style="font-size: 16px;">{loc['name']}</h4>
-                    <p style="font-size: 14px; color: gray;">{loc['address']}</p>
-                    <p style="font-size: 12px;"><strong>Activity:</strong> {loc['activity']}</p>
-                </div>
-            </div>
-            """
-    location_gallery_html += "</div>"
+        day = loc.get('day', 0)
+        if day not in day_images:
+            day_images[day] = []
+        
+        if loc.get('image_url') and province_name.lower() in loc.get('address', '').lower():
+            day_images[day].append(loc)
+    
+    # Create a day-by-day gallery of images
+    location_gallery_html = "<h3>Day-by-Day Attractions:</h3>"
+    for day in sorted(day_images.keys()):
+        if day_images[day]:
+            location_gallery_html += f"<h4>Day {day} Locations:</h4>"
+            location_gallery_html += "<div style='display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px;'>"
+            
+            # Get unique locations for this day
+            seen_names = set()
+            for loc in day_images[day]:
+                if loc['name'] not in seen_names:
+                    seen_names.add(loc['name'])
+                    location_gallery_html += f"""
+                    <div style="border: 1px solid #ddd; border-radius: 8px; overflow: hidden; text-align: center;">
+                        <img src="{loc['image_url']}" alt="{loc['name']}" style="width:100%;height:150px;object-fit:cover;">
+                        <div style="padding: 10px;">
+                            <h4 style="font-size: 16px;">{loc['name']}</h4>
+                            <p style="font-size: 14px; color: gray;">{loc['address']}</p>
+                            <p style="font-size: 12px;"><strong>Activity:</strong> {loc['activity']}</p>
+                        </div>
+                    </div>
+                    """
+            location_gallery_html += "</div>"
 
     # Combine all parts into the response
     response = f"""
@@ -502,7 +531,7 @@ def process_user_question(user_question):
 {itinerary_cleaned}
             </pre>
         </div>
-        <h3 style="margin-top: 20px;">Interactive Map:</h3>
+        <h3 style="margin-top: 20px;">Interactive Map with Daily Routes:</h3>
         <div>
 {map_html}
         </div>
@@ -522,6 +551,7 @@ def process_user_question(user_question):
 if __name__ == "__main__":
     user_question = input("Please enter your question (e.g., 'Create a travel itinerary for Krabi province'): ")
     start_time = time.time()
-    process_user_question(user_question)
+    result = process_user_question(user_question)
+    print(result)
     end_time = time.time()
     logging.info(f"Processing Time: {end_time - start_time:.2f} seconds")
