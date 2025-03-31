@@ -129,12 +129,14 @@ def create_pdf_from_history(session_id, destination_name):
         story.append(timestamp)
         story.append(Spacer(1, 12))
 
-        # Extract text content for the PDF
+       # Extract text content for the PDF (latest -1 message)
         html_content = ""
-        for message in conversation_history[session_id]:
-            if 'assistant' in message:
-                html_content = message['assistant']
-                break
+        assistant_messages = [msg['assistant'] for msg in conversation_history[session_id] if 'assistant' in msg]
+        if len(assistant_messages) > 1:
+            html_content = assistant_messages[-2]  # ดึงข้อความก่อนหน้าข้อความล่าสุด
+        elif assistant_messages:  
+            html_content = assistant_messages[0]  # ถ้ามีข้อความเดียวให้ใช้ข้อความแรก
+
 
         # Convert HTML to readable text
         text_content = extract_text_from_html(html_content)
