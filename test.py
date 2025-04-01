@@ -333,74 +333,75 @@ class EnhancedFoliumMapGenerator:
         map_center = [default_lat, default_lon]
         all_location_data = []
         image_cache = {}  # Cache for images
-
         # Day colors for routes and markers
         day_colors = ['blue', 'red', 'green', 'purple', 'orange', 'darkblue', 'darkred', 'darkgreen', 
                     'cadetblue', 'darkpurple', 'pink', 'lightblue', 'lightgreen', 'gray', 'black']
-
         # Create the map
         m = folium.Map(location=map_center, zoom_start=10, tiles="CartoDB positron")
-
         # Create a separate FeatureGroup for each day
         feature_groups = {}
-
         # First pass: Get coordinates for all locations
         flat_locations = []
         for day, locations in day_locations.items():
             for location in locations:
                 location["day"] = day  # Ensure day is set
                 flat_locations.append(location)
-
         # Get coordinates and image URLs for all locations
-        for location in flat_locations:
-            place_info = google_integration.get_place_by_name(location["name"])
-            if place_info:
-                day = location["day"]
-                lat, lon = place_info['latitude'], place_info['longitude']
-                # Cache image URL
-                place_id = place_info['place_id']
-                if place_id not in image_cache:
-                    image_url = google_integration.get_place_image_url(place_id)
-                    image_cache[place_id] = image_url
-                else:
-                    image_url = image_cache[place_id]
+        for day, locations in day_locations.items():
+            day_color = day_colors[(day - 1) % len(day_colors)]
+            if day not in feature_groups:
+                feature_groups[day] = folium.FeatureGroup(name=f"Day {day}")
+                feature_groups[day].add_to(m)
 
-                # Store location data
-                location_data = {
-                    "name": place_info['name'],
-                    "address": place_info['address'],
-                    "lat": lat,
-                    "lon": lon,
-                    "is_base": location.get("is_base", False),
-                    "image_url": image_url,
-                    "activity": location.get("activity", ""),
-                    "type": location.get("type", "general"),
-                    "day": day
-                }
-                all_location_data.append(location_data)
+            for idx, location in enumerate(locations):
+                place_info = google_integration.get_place_by_name(location["name"])
+                if place_info:
+                    lat, lon = place_info['latitude'], place_info['longitude']
+                    # Cache image URL
+                    place_id = place_info['place_id']
+                    if place_id not in image_cache:
+                        image_url = google_integration.get_place_image_url(place_id)
+                        image_cache[place_id] = image_url
+                    else:
+                        image_url = image_cache[place_id]
+                    # Store location data
+                    location_data = {
+                        "name": place_info['name'],
+                        "address": place_info['address'],
+                        "lat": lat,
+                        "lon": lon,
+                        "is_base": location.get("is_base", False),
+                        "image_url": image_url,
+                        "activity": location.get("activity", ""),
+                        "type": location.get("type", "general"),
+                        "day": day
+                    }
+                    all_location_data.append(location_data)
 
-                # Create FeatureGroup for this day if it doesn't exist
-                if day not in feature_groups:
-                    feature_groups[day] = folium.FeatureGroup(name=f"Day {day}")
-                    feature_groups[day].add_to(m)
-
-                # Add marker to the appropriate day's FeatureGroup
-                day_color = day_colors[(day - 1) % len(day_colors)]
-                popup_html = f"""
-                <div style="width:250px">
-                    <h4>{place_info['name']}</h4>
-                    <p><strong>Day {day}</strong></p>
-                    <p>{place_info['address']}</p>
-                    <p><strong>Activity:</strong> {location['activity']}</p>
-                    {f'<img src="{image_url}" style="width:100%;max-height:150px;object-fit:cover">' if image_url else ''}
-                </div>
-                """
-                folium.Marker(
-                    location=[lat, lon],
-                    popup=folium.Popup(popup_html, max_width=300),
-                    tooltip=f"Day {day}: {place_info['name']}",
-                    icon=folium.Icon(color=day_color, icon="info-sign")
-                ).add_to(feature_groups[day])
+                    # Add marker with number
+                    popup_html = f"""
+                    <div style="width:250px">
+                        <h4>{place_info['name']}</h4>
+                        <p><strong>Day {day}</strong></p>
+                        <p>{place_info['address']}</p>
+                        <p><strong>Activity:</strong> {location['activity']}</p>
+                        {f'<img src="{image_url}" style="width:100%;max-height:150px;object-fit:cover">' if image_url else ''}
+                    </div>
+                    """
+                    # Create a DivIcon with the number
+                    number_icon = folium.DivIcon(
+                        html=f"""
+                        <div style="background-color: {day_color}; border-radius: 50%; width: 30px; height: 30px; text-align: center; line-height: 30px; color: white; font-weight: bold;">
+                            {idx + 1}
+                        </div>
+                        """
+                    )
+                    folium.Marker(
+                        location=[lat, lon],
+                        popup=folium.Popup(popup_html, max_width=300),
+                        tooltip=f"Day {day}: {place_info['name']}",
+                        icon=number_icon
+                    ).add_to(feature_groups[day])
 
         # Draw routes for each day
         for day, locations in day_locations.items():
@@ -417,12 +418,10 @@ class EnhancedFoliumMapGenerator:
 
         # Add Layer Control to toggle visibility of days
         folium.LayerControl().add_to(m)
-
         # If we have coordinates, set map center to the first valid location
         if all_location_data:
             map_center = [all_location_data[0]['lat'], all_location_data[0]['lon']]
             m.location = map_center
-
         map_html = m._repr_html_()
         return map_html, all_location_data
 
