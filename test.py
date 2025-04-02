@@ -11,9 +11,13 @@ import folium
 from folium.plugins import MarkerCluster
 from typing import Optional, List, Dict
 import random
+import openrouteservice
 
 # Constants
 GOOGLE_MAPS_API_KEY = "AIzaSyDv_OEg50nhbpvW-EtNy3ze-dqsG4tPEEI"
+
+# ใส่ API Key ของคุณที่ได้จาก OpenRouteService
+client = openrouteservice.Client(key='5b3ce3597851110001cf6248d13d2b628357479288dcac285dd42fe5')
 
 # Logging Configuration
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(message)s")
@@ -322,13 +326,36 @@ class EnhancedFoliumMapGenerator:
                 day_locations[day] = []
         
         return day_locations
+    
+    @staticmethod
+    def get_location_data(day_locations, google_integration):
+        """
+        ดึงพิกัดสถานที่จาก Google API และอัปเดตเข้าไปใน day_locations
+        """
+        # ดึงชื่อสถานที่ทั้งหมดจากผลลัพธ์ของ parse_itinerary_by_day()
+        itinerary_places = [loc["name"] for locations in day_locations.values() for loc in locations]
 
+        # เรียก get_places_by_itinerary() เพื่อดึงพิกัดทั้งหมด
+        places_data = google_integration.get_places_by_itinerary(itinerary_places)
+
+        # อัปเดต day_locations ให้มีพิกัดจาก places_data
+        for day, locations in day_locations.items():
+            for loc in locations:
+                place_info = next((p for p in places_data if p["name"] == loc["name"]), None)
+                if place_info:
+                    loc["latitude"] = place_info["latitude"]
+                    loc["longitude"] = place_info["longitude"]
+
+        return day_locations  # คืนค่า day_locations ที่มีพิกัดครบถ้วนแล้ว
+    
     @staticmethod
     def generate_folium_map(day_locations, google_integration):
         """
-        Generate a Folium map with day-by-day routes and color-coded markers.
-        Returns HTML string of the map and location data.
+        สร้างแผนที่ Folium และเพิ่มจุดพิกัดจาก Google API
         """
+        # 🎯 เรียก get_location_data() เพื่อให้ day_locations มีพิกัดก่อนสร้างแผนที่
+        day_locations = EnhancedFoliumMapGenerator.get_location_data(day_locations, google_integration)
+        
         default_lat, default_lon = 13.7563, 100.5018  # Bangkok, Thailand
         map_center = [default_lat, default_lon]
         all_location_data = []
@@ -336,8 +363,8 @@ class EnhancedFoliumMapGenerator:
         # Day colors for routes and markers
         day_colors = ['blue', 'red', 'green', 'purple', 'orange', 'darkblue', 'darkred', 'darkgreen', 
                     'cadetblue', 'darkpurple', 'pink', 'lightblue', 'lightgreen', 'gray', 'black']
-        # Create the map
-        m = folium.Map(location=map_center, zoom_start=10, tiles="CartoDB positron")
+        # Create the map with OpenStreetMap as the tile layer
+        m = folium.Map(location=map_center, zoom_start=10, tiles="OpenStreetMap")
         # Create a separate FeatureGroup for each day
         feature_groups = {}
         # First pass: Get coordinates for all locations
@@ -355,15 +382,23 @@ class EnhancedFoliumMapGenerator:
 
             for idx, location in enumerate(locations):
                 place_info = google_integration.get_place_by_name(location["name"])
-                if place_info:
+                print(f"Checking Place Info for {location['name']}: {place_info}")  # 🛠 Debug
+                
+                if place_info and 'latitude' in place_info and 'longitude' in place_info:
                     lat, lon = place_info['latitude'], place_info['longitude']
-                    # Cache image URL
-                    place_id = place_info['place_id']
-                    if place_id not in image_cache:
-                        image_url = google_integration.get_place_image_url(place_id)
-                        image_cache[place_id] = image_url
+                    place_id = place_info.get('place_id')
+                    
+                    if place_id:
+                        print(f"Fetching Image for Place ID: {place_id}")  # 🛠 Debug
+                        if place_id not in image_cache:
+                            image_url = google_integration.get_place_image_url(place_id)
+                            image_cache[place_id] = image_url
+                        else:
+                            image_url = image_cache[place_id]
                     else:
-                        image_url = image_cache[place_id]
+                        print(f"❌ No Place ID found for {location['name']}")  # ❌ แจ้งเตือนถ้าไม่มี place_id
+                        image_url = None
+                    
                     # Store location data
                     location_data = {
                         "name": place_info['name'],
@@ -402,6 +437,8 @@ class EnhancedFoliumMapGenerator:
                         tooltip=f"Day {day}: {place_info['name']}",
                         icon=number_icon
                     ).add_to(feature_groups[day])
+                else:
+                    print(f"❌ No valid location data for {location['name']}")  # แจ้งเตือนถ้าไม่มีพิกัด
 
         # Draw routes for each day
         for day, locations in day_locations.items():
@@ -424,6 +461,8 @@ class EnhancedFoliumMapGenerator:
             m.location = map_center
         map_html = m._repr_html_()
         return map_html, all_location_data
+
+
 
 # Main Functionality
 def process_user_question(user_question):
